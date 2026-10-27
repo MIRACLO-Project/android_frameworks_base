@@ -19,12 +19,16 @@ package com.android.systemui.qs.composefragment
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
+import android.database.ContentObserver
 import android.graphics.Canvas
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.Rect
 import android.os.Bundle
+import android.os.Handler
 import android.os.Trace
+import android.os.UserHandle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -58,6 +62,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -116,6 +121,7 @@ import com.android.systemui.brightness.ui.compose.ContainerColors
 import com.android.systemui.compose.modifiers.sysUiResTagContainer
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.dagger.qualifiers.Background
+import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.dump.DumpManager
 import com.android.systemui.initOnBackPressedDispatcherOwner
 import com.android.systemui.keyboard.shortcut.ui.composable.InteractionsConfig
@@ -123,12 +129,14 @@ import com.android.systemui.keyboard.shortcut.ui.composable.ProvideShortcutHelpe
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.lifecycle.setSnapshotBinding
 import com.android.systemui.log.table.TableLogBuffer
+import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
 import com.android.systemui.media.controls.ui.view.MediaHost
 import com.android.systemui.media.remedia.shared.flag.MediaControlsInComposeFlag
 import com.android.systemui.media.remedia.ui.compose.Media
 import com.android.systemui.media.remedia.ui.compose.MediaPresentationStyle
 import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
+import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.plugins.qs.QS
 import com.android.systemui.plugins.qs.QSContainerController
 import com.android.systemui.qs.composefragment.SceneKeys.QuickQuickSettings
@@ -145,11 +153,15 @@ import com.android.systemui.qs.panels.shared.model.QSFragmentComposeClippingTabl
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
+import com.android.settingslib.volume.domain.interactor.AudioVolumeInteractor
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOQsStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
 import com.android.systemui.qs.ui.composable.QuickSettingsTheme
 import com.android.systemui.res.R
+import com.android.systemui.settings.UserTracker
 import com.android.systemui.shade.ShadeDisplayAware
 import com.android.systemui.statusbar.policy.ConfigurationController
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener
@@ -181,6 +193,12 @@ constructor(
     private val dumpManager: DumpManager,
     @Background private val backgroundDispatcher: CoroutineDispatcher,
     @ShadeDisplayAware private val configurationController: ConfigurationController,
+    @Main private val mainHandler: Handler,
+    private val userTracker: UserTracker,
+    private val infiniteGridLayout: InfiniteGridLayout,
+    private val audioVolumeInteractor: AudioVolumeInteractor,
+    private val mediaDataManager: MediaDataManager,
+    private val activityStarter: ActivityStarter,
 ) : LifecycleFragment(), QS, Dumpable {
 
     private val scrollListener = MutableStateFlow<QS.ScrollListener?>(null)
@@ -199,12 +217,70 @@ constructor(
     private val locationTemp = IntArray(2)
     private var bottomBarPositionInRoot = IntRect(IntOffset(0, 0), 0)
     private var bottomContentPadding by mutableIntStateOf(0)
+
+    /** MiraCLO: whether the ColorOS-style Quick Settings layout is on ([MIRACLO_QS_STYLE]). */
+    private var miracloQsStyle by mutableStateOf(false)
+
+    /** MiraCLO: media sessions for the ColorOS-style QS media card. */
+    private val miracloMediaSessions = MiraCLOMediaSessions()
+
+    /**
+     * MiraCLO: the portrait ColorOS layout always fits, so QS never scrolls and a swipe up always
+     * collapses it. In landscape the panel is too short, so it scrolls like stock.
+     */
+    private fun miracloNoVerticalScroll(): Boolean =
+        miracloQsStyle &&
+            context?.resources?.configuration?.orientation != Configuration.ORIENTATION_LANDSCAPE
+
+    /** MiraCLO: Settings.Secure keys this fragment follows live. */
+    private val miracloSecureKeys = listOf(MIRACLO_QS_STYLE)
+
+    /** MiraCLO: re-reads the MiraCLO settings whenever one of them changes. */
+    private val miracloSettingsObserver =
+        object : ContentObserver(mainHandler) {
+            override fun onChange(selfChange: Boolean) {
+                readMiraCLOSettings()
+            }
+        }
+
+    /** MiraCLO: the settings are per user, so read them again after a user switch. */
+    private val miracloUserCallback =
+        object : UserTracker.Callback {
+            override fun onUserChanged(newUser: Int, userContext: Context) {
+                readMiraCLOSettings()
+            }
+        }
+
     private val containerView: FrameLayoutTouchPassthrough?
         get() = view as? FrameLayoutTouchPassthrough
 
     override fun onStart() {
         super.onStart()
         registerDumpable()
+        val resolver = context?.contentResolver ?: return
+        miracloSecureKeys.forEach { key ->
+            resolver.registerContentObserver(
+                Settings.Secure.getUriFor(key),
+                false,
+                miracloSettingsObserver,
+                UserHandle.USER_ALL,
+            )
+        }
+        userTracker.addCallback(miracloUserCallback) { mainHandler.post(it) }
+        readMiraCLOSettings()
+    }
+
+    override fun onStop() {
+        userTracker.removeCallback(miracloUserCallback)
+        context?.contentResolver?.unregisterContentObserver(miracloSettingsObserver)
+        super.onStop()
+    }
+
+    /** MiraCLO: reads every MiraCLO setting this fragment uses for the current user. */
+    private fun readMiraCLOSettings() {
+        val resolver = context?.contentResolver ?: return
+        val userId = userTracker.userId
+        miracloQsStyle = Settings.Secure.getIntForUser(resolver, MIRACLO_QS_STYLE, 0, userId) != 0
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -214,6 +290,12 @@ constructor(
 
         setListenerCollections()
         lifecycleScope.launch { viewModel.activate() }
+        mediaDataManager.addListener(miracloMediaSessions)
+    }
+
+    override fun onDestroy() {
+        mediaDataManager.removeListener(miracloMediaSessions)
+        super.onDestroy()
     }
 
     override fun onCreateView(
@@ -238,11 +320,15 @@ constructor(
         val canScrollQs =
             object : CanScrollQs {
                 override fun forward(): Boolean {
+                    // MiraCLO: the ColorOS layout pages sideways and never scrolls vertically,
+                    // so a swipe up always reaches the shade and collapses QS.
+                    if (miracloNoVerticalScroll()) return isCustomizing
                     return (scrollState.canScrollForward && viewModel.isQsFullyExpanded) ||
                         isCustomizing
                 }
 
                 override fun backward(): Boolean {
+                    if (miracloNoVerticalScroll()) return isCustomizing
                     return (scrollState.canScrollBackward && viewModel.isQsFullyExpanded) ||
                         isCustomizing
                 }
@@ -273,35 +359,38 @@ constructor(
     @Composable
     private fun Content(modifier: Modifier = Modifier) {
         PlatformTheme(isDarkTheme = if (notificationShadeBlur()) isSystemInDarkTheme() else true) {
-            ProvideShortcutHelperIndication(interactionsConfig = interactionsConfig()) {
-                Box(
-                    modifier =
-                        modifier
-                            .layout { measurable, constraints ->
-                                measurable.measure(constraints).run {
-                                    layout(width, height) {
-                                        if (viewModel.isQsVisibleAndAnyShadeExpanded) {
-                                            place(0, 0)
+            // MiraCLO: lets the tiles know which Quick Settings style is on.
+            CompositionLocalProvider(LocalMiraCLOQsStyle provides miracloQsStyle) {
+                ProvideShortcutHelperIndication(interactionsConfig = interactionsConfig()) {
+                    Box(
+                        modifier =
+                            modifier
+                                .layout { measurable, constraints ->
+                                    measurable.measure(constraints).run {
+                                        layout(width, height) {
+                                            if (viewModel.isQsVisibleAndAnyShadeExpanded) {
+                                                place(0, 0)
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            .graphicsLayer { alpha = viewModel.viewAlpha }
-                            .thenIf(!Flags.notificationShadeBlur()) {
-                                Modifier.offset {
-                                    IntOffset(
-                                        x = 0,
-                                        y = viewModel.viewTranslationY.fastRoundToInt(),
-                                    )
+                                .graphicsLayer { alpha = viewModel.viewAlpha }
+                                .thenIf(!Flags.notificationShadeBlur()) {
+                                    Modifier.offset {
+                                        IntOffset(
+                                            x = 0,
+                                            y = viewModel.viewTranslationY.fastRoundToInt(),
+                                        )
+                                    }
                                 }
-                            }
-                            // Disable touches in the whole composable while the mirror is
-                            // showing. While the mirror is showing, an ancestor of the
-                            // ComposeView is made alpha 0, but touches are still being captured
-                            // by the composables.
-                            .thenIf(viewModel.showingMirror) { Modifier.gesturesDisabled() }
-                ) {
-                    CollapsableQuickSettingsSTL()
+                                // Disable touches in the whole composable while the mirror is
+                                // showing. While the mirror is showing, an ancestor of the
+                                // ComposeView is made alpha 0, but touches are still being captured
+                                // by the composables.
+                                .thenIf(viewModel.showingMirror) { Modifier.gesturesDisabled() }
+                    ) {
+                        CollapsableQuickSettingsSTL()
+                    }
                 }
             }
         }
@@ -326,7 +415,12 @@ constructor(
                 transitions =
                     transitions {
                         from(QuickQuickSettings, QuickSettings) {
-                            quickQuickSettingsToQuickSettings(viewModel::animateTilesExpansion::get)
+                            // MiraCLO: the ColorOS layout puts tiles in different places and
+                            // shapes than QQS, so morphing each tile across makes them fly over
+                            // each other. There, QQS fades out and the panel fades/slides in.
+                            quickQuickSettingsToQuickSettings {
+                                viewModel.animateTilesExpansion && !miracloQsStyle
+                            }
                         }
                         to(SceneKeys.EditMode) {
                             spec = tween(durationMillis = EDIT_MODE_TIME_MILLIS)
@@ -825,7 +919,15 @@ constructor(
                                     )
                                 }
                                 .onSizeChanged { viewModel.qsScrollHeight = it.height }
-                                .verticalScroll(scrollState)
+                                .verticalScroll(
+                                    scrollState,
+                                    // MiraCLO: portrait ColorOS layout fits the screen and must
+                                    // not scroll; landscape is too short, so it scrolls.
+                                    enabled =
+                                        !miracloQsStyle ||
+                                            LocalConfiguration.current.orientation ==
+                                                Configuration.ORIENTATION_LANDSCAPE,
+                                )
                                 .padding(bottom = 8.dp)
                                 .sysuiResTag(ResIdTags.qsScroll)
                     ) {
@@ -917,17 +1019,79 @@ constructor(
                                         end = qsHorizontalMargin(),
                                     )
                         ) {
-                            QuickSettingsLayout(
-                                brightness =
-                                    if (viewModel.isBrightnessSliderVisible) {
-                                        { BrightnessSlider() }
-                                    } else {
-                                        {}
-                                    },
-                                tiles = TileGrid,
-                                media = Media,
-                                mediaInRow = viewModel.qsMediaInRow,
-                            )
+                            if (miracloQsStyle) {
+                                Box {
+                                    GridAnchor()
+                                    MiraCLOQuickSettingsLayout(
+                                        tiles = containerViewModel.tileGridViewModel.tileViewModels,
+                                        gridLayout = containerViewModel.tileGridViewModel.gridLayout,
+                                        infiniteGridLayout = infiniteGridLayout,
+                                        brightnessViewModel =
+                                            containerViewModel.brightnessSliderViewModel,
+                                        audioVolumeInteractor = audioVolumeInteractor,
+                                        showMedia =
+                                            viewModel.qsMediaVisible &&
+                                                miracloMediaSessions.current != null,
+                                        mediaHost = { hostModifier ->
+                                            // The stock QS media host stays in the slot, hidden
+                                            // under the MiraCLO card, so the stock media
+                                            // animation from QQS lands here instead of flying
+                                            // off to the top of the screen.
+                                            if (viewModel.qsMediaVisible) {
+                                                MediaObject(
+                                                    mediaHost = viewModel.qsMediaHost,
+                                                    modifier =
+                                                        hostModifier.graphicsLayer { alpha = 0f },
+                                                    mediaViewModelFactory =
+                                                        viewModel.mediaViewModelFactory,
+                                                    mediaPresentationStyle =
+                                                        MediaPresentationStyle.Compressed,
+                                                    onSwipeToDismiss =
+                                                        viewModel::onMediaSwipeToDismiss,
+                                                    behavior = viewModel.qsMediaUiBehavior,
+                                                    visible = isListening,
+                                                    // Fully qualified: the local `Media` lambda
+                                                    // shadows the class here.
+                                                    location =
+                                                        com.android.systemui.media.remedia.ui
+                                                            .compose.Media.Location.QS,
+                                                    expansion = { 0f },
+                                                )
+                                            }
+                                        },
+                                        media = { mediaModifier ->
+                                            miracloMediaSessions.current?.let { data ->
+                                                MiraCLOMediaCard(
+                                                    data = data,
+                                                    onOpen = { intent ->
+                                                        activityStarter
+                                                            .postStartActivityDismissingKeyguard(
+                                                                intent
+                                                            )
+                                                    },
+                                                    modifier = mediaModifier,
+                                                )
+                                            }
+                                        },
+                                        listening = isListening,
+                                        // ColorOS 17 uses ~38dp side margins; the stock QS
+                                        // margin already gives ~16dp, so add the rest.
+                                        modifier = Modifier.padding(horizontal = 22.dp),
+                                    )
+                                }
+                            } else {
+                                QuickSettingsLayout(
+                                    brightness =
+                                        if (viewModel.isBrightnessSliderVisible) {
+                                            { BrightnessSlider() }
+                                        } else {
+                                            {}
+                                        },
+                                    tiles = TileGrid,
+                                    media = Media,
+                                    mediaInRow = viewModel.qsMediaInRow,
+                                )
+                            }
                         }
                     }
                 }
@@ -1522,3 +1686,6 @@ private fun AlwaysDarkMode(content: @Composable () -> Unit) {
         }
     }
 }
+
+/** MiraCLO: Settings.Secure key for the ColorOS-style Quick Settings layout (0 = off, 1 = on). */
+private const val MIRACLO_QS_STYLE = "miraclo_qs_style"

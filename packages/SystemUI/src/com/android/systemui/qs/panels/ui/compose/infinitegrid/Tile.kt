@@ -28,6 +28,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
@@ -36,15 +37,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -54,7 +63,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -66,7 +77,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.trace
 import com.android.app.tracing.coroutines.launchTraced as launch
 import com.android.compose.animation.Expandable
@@ -93,6 +107,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveIconCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.InactiveTileCornerRadius
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.TileHeight
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.ToggleTargetSize
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelMoreDetails
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults.longPressLabelSettings
 import com.android.systemui.qs.panels.ui.viewmodel.AccessibilityUiState
@@ -113,6 +128,17 @@ import platform.test.motion.compose.values.motionTestValues
 
 private val TileViewModel.traceName
     get() = spec.toString().takeLast(Trace.MAX_SECTION_NAME_LEN)
+
+/** MiraCLO: ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
+internal val LocalMiraCLOQsStyle = compositionLocalOf { false }
+
+/** Glass rim of MiraCLO tiles. Created once instead of on every frame of the QS animation. */
+private val MiraCLOTileRim =
+    Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.04f)))
+
+private val MiraCLOBlue = Color(0xFF1677FF)
+private val MiraCLOGreen = Color(0xFF16A34A)
+private val MIRACLO_DATA_TILES = setOf("cell", "mobile_data", "mobiledata")
 
 /**
  * This composable function is responsible for rendering a tile based on the provided
@@ -169,7 +195,10 @@ fun ContentScope.Tile(
                 tile.state.collect { value = it.toIconProvider() }
             }
 
-        val colors = TileDefaults.getColorForState(uiState, iconOnly)
+        val miracloStyle = LocalMiraCLOQsStyle.current
+        val colors =
+            if (miracloStyle) TileDefaults.miracloColorsForState(uiState, iconOnly, tile.spec.spec)
+            else TileDefaults.getColorForState(uiState, iconOnly)
         val hapticsViewModel: TileHapticsViewModel =
             rememberViewModel(traceName = "TileHapticsViewModel") {
                 tileHapticsViewModelFactory.create(tile)
@@ -177,6 +206,8 @@ fun ContentScope.Tile(
 
         // TODO(b/361789146): Draw the shapes instead of clipping
         val tileShape by TileDefaults.animateTileShapeAsState(uiState)
+        // MiraCLO style: icon-only tiles are drawn as perfect circles.
+        val miracloRoundTile = miracloStyle && iconOnly
         val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
         val isDualTarget = uiState.handlesToggleClick
         val interactionSource = remember { MutableInteractionSource() }
@@ -217,7 +248,9 @@ fun ContentScope.Tile(
             text = uiState.label,
             modifier = modifier,
             enabled = Flags.enableQsTileTooltips(),
-        ) { modifier ->
+        ) { tooltipModifier ->
+            val tileBody: @Composable (Modifier) -> Unit = { modifier ->
+            val roundTileSize = TileHeight
             TileExpandable(
                 expandable = expandable,
                 color = { animatedColor },
@@ -226,7 +259,18 @@ fun ContentScope.Tile(
                 hapticsViewModel = hapticsViewModel,
                 modifier =
                     modifier
+                        // MiraCLO: keep round tiles square, centred in the full grid slot.
+                        .thenIf(miracloRoundTile) {
+                            Modifier.fillMaxWidth()
+                                .height(roundTileSize)
+                                .wrapContentSize(Alignment.Center)
+                                .widthIn(max = roundTileSize)
+                                .aspectRatio(1f)
+                        }
                         .then(surfaceRevealModifier)
+                        .thenIf(miracloStyle) {
+                            Modifier.border(width = 1.dp, brush = MiraCLOTileRim, shape = tileShape)
+                        }
                         .borderOnFocus(
                             color = MaterialTheme.colorScheme.secondary,
                             tileShape.topEnd,
@@ -349,7 +393,45 @@ fun ContentScope.Tile(
                     }
                 }
             }
+            }
+            if (miracloStyle && iconOnly) {
+                MiraCLOLabeledIconTile(
+                    label = uiState.label,
+                    labelColor = colors.label,
+                    modifier = tooltipModifier,
+                ) {
+                    tileBody(Modifier)
+                }
+            } else {
+                tileBody(tooltipModifier)
+            }
         }
+    }
+}
+
+/** MiraCLO: a round icon tile with its label underneath, as in the ColorOS layout. */
+@Composable
+private fun MiraCLOLabeledIconTile(
+    label: String,
+    labelColor: Color,
+    modifier: Modifier = Modifier,
+    tile: @Composable () -> Unit,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        tile()
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = label,
+            color = labelColor,
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+        )
     }
 }
 
@@ -583,6 +665,45 @@ private object TileDefaults {
         )
     }
 
+    /**
+     * MiraCLO style, modelled on ColorOS: translucent "glass" tiles that let the shade blur show
+     * through. On a dark panel an active tile shows a white bubble with a coloured icon; on a
+     * light panel the bubble is filled with the colour and the icon is white. Mobile data uses
+     * green, everything else blue.
+     */
+    @Composable
+    @ReadOnlyComposable
+    fun miracloColorsForState(uiState: TileUiState, iconOnly: Boolean, spec: String): TileColors {
+        val onSurface = MaterialTheme.colorScheme.onSurface
+        val darkPanel = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+        val accent = if (spec in MIRACLO_DATA_TILES) MiraCLOGreen else MiraCLOBlue
+        val glass = if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.55f)
+        val bubbleOff =
+            if (darkPanel) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.06f)
+        val bubbleOn = if (darkPanel) Color.White else accent
+        val iconOn = if (darkPanel) accent else Color.White
+        val secondary = onSurface.copy(alpha = 0.70f)
+        return when (uiState.visualState) {
+            STATE_ACTIVE ->
+                TileColors(
+                    background = if (iconOnly) bubbleOn else glass,
+                    iconBackground = bubbleOn,
+                    label = onSurface,
+                    secondaryLabel = secondary,
+                    icon = iconOn,
+                )
+            STATE_INACTIVE ->
+                TileColors(
+                    background = glass,
+                    iconBackground = bubbleOff,
+                    label = onSurface,
+                    secondaryLabel = secondary,
+                    icon = onSurface,
+                )
+            else -> unavailableTileColors()
+        }
+    }
+
     @Composable
     @ReadOnlyComposable
     fun getColorForState(uiState: TileUiState, iconOnly: Boolean): TileColors {
@@ -609,6 +730,9 @@ private object TileDefaults {
 
     @Composable
     fun iconRadius(uiState: TileUiState): Dp {
+        if (LocalMiraCLOQsStyle.current) {
+            return ToggleTargetSize / 2
+        }
         return when (uiState.visualState) {
             STATE_ACTIVE -> ActiveIconCornerRadius
             STATE_INACTIVE -> InactiveIconCornerRadius
@@ -618,6 +742,9 @@ private object TileDefaults {
 
     @Composable
     fun tileRadius(uiState: TileUiState): Dp {
+        if (LocalMiraCLOQsStyle.current) {
+            return TileHeight / 2
+        }
         return when (uiState.visualState) {
             STATE_ACTIVE -> ActiveTileCornerRadius
             STATE_INACTIVE -> InactiveTileCornerRadius
