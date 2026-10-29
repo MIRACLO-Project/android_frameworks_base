@@ -40,6 +40,7 @@ import androidx.annotation.NonNull;
 
 import com.android.internal.policy.SystemBarUtils;
 import com.android.systemui.Gefingerpoken;
+import com.android.systemui.miraclo.island.IslandStatusBarSpace;
 import com.android.systemui.res.R;
 import com.android.systemui.statusbar.gesture.StatusBarLongPressGestureDetector;
 import com.android.systemui.statusbar.phone.userswitcher.StatusBarUserSwitcherContainer;
@@ -78,6 +79,10 @@ public class PhoneStatusBarView extends FrameLayout {
      * Draw this many pixels into the left/right side of the cutout to optimally use the space
      */
     private int mCutoutSideNudge = 0;
+
+    /** MiraCLO: the Dynamic Island's pills appeared, changed or left. */
+    private final Runnable mIslandSpaceListener = this::applyIslandMode;
+    private int mIslandMode = IslandStatusBarSpace.NONE;
 
     public PhoneStatusBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -128,6 +133,8 @@ public class PhoneStatusBarView extends FrameLayout {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        IslandStatusBarSpace.addListener(mIslandSpaceListener);
+        applyIslandMode();
         if (updateDisplayParameters()) {
             updateLayoutForCutout();
         }
@@ -143,6 +150,7 @@ public class PhoneStatusBarView extends FrameLayout {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        IslandStatusBarSpace.removeListener(mIslandSpaceListener);
         mDisplayCutout = null;
     }
 
@@ -368,6 +376,31 @@ public class PhoneStatusBarView extends FrameLayout {
         bounds.right = bounds.right - mCutoutSideNudge;
         lp.width = bounds.width();
         lp.height = bounds.height();
+    }
+
+    /**
+     * MiraCLO: while Dynamic Island pills show, keep only the clock on the left and the battery
+     * (plus one network icon beside a lone main pill) on the right. Everything else fades out
+     * where it is, so nothing slides under a pill; it all fades back when the pills go.
+     */
+    private void applyIslandMode() {
+        final int mode = IslandStatusBarSpace.mode();
+        if (mode == mIslandMode) return;
+        mIslandMode = mode;
+        final boolean hide = mode != IslandStatusBarSpace.NONE;
+        // Notification icons and the status bar chips share this container; the clock does not.
+        fadeForIsland(findViewById(R.id.start_side_notif_and_chip_container), hide);
+        StatusIconContainer icons = findViewById(R.id.statusIcons);
+        if (icons != null) icons.setIslandMode(mode);
+    }
+
+    private static void fadeForIsland(@Nullable View view, boolean hide) {
+        if (view == null) return;
+        view.animate().cancel();
+        view.animate()
+                .alpha(hide ? 0f : 1f)
+                .setDuration(hide ? 120 : 180)
+                .start();
     }
 
     private void updateSafeInsets() {
