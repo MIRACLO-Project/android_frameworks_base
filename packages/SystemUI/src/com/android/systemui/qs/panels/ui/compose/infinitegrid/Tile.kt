@@ -18,6 +18,8 @@
 
 package com.android.systemui.qs.panels.ui.compose.infinitegrid
 
+import com.android.systemui.miraclo.LocalMiraCLORefraction
+import com.android.systemui.miraclo.miracloRefraction
 import android.content.Context
 import android.content.res.Resources
 import android.os.Trace
@@ -221,6 +223,7 @@ fun ContentScope.Tile(
 
         val miracloStyle = LocalMiraCLOQsStyle.current
         val liquidGlass = LocalMiraCLOLiquidGlass.current
+        val miracloRefraction = miracloStyle && liquidGlass && LocalMiraCLORefraction.current
         val miracloLightPanel = MaterialTheme.colorScheme.surface.luminance() >= 0.5f
         val colors =
             if (miracloStyle) TileDefaults.miracloColorsForState(uiState, iconOnly, tile.spec.spec)
@@ -232,6 +235,10 @@ fun ContentScope.Tile(
 
         // TODO(b/361789146): Draw the shapes instead of clipping
         val tileShape by TileDefaults.animateTileShapeAsState(uiState)
+        // MiraCLO: SurfaceFlinger draws the refracting glass behind see-through tiles.
+        val refractionModifier =
+            Modifier.miracloRefraction(
+                tileShape, miracloRefraction && colors.background.alpha < 0.99f)
         // MiraCLO style: icon-only tiles are drawn as perfect circles.
         val miracloRoundTile = miracloStyle && iconOnly
         val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
@@ -294,8 +301,12 @@ fun ContentScope.Tile(
                                 .aspectRatio(1f)
                         }
                         .then(surfaceRevealModifier)
+                        .then(refractionModifier)
                         .thenIf(miracloStyle) {
-                            if (liquidGlass) {
+                            if (miracloRefraction) {
+                                // The rim and its light come from the refraction shader.
+                                Modifier
+                            } else if (liquidGlass) {
                                 Modifier.background(MiraCLOLiquidHighlight, tileShape)
                                     .border(width = 1.3.dp, brush = MiraCLOLiquidRim, shape = tileShape)
                             } else if (miracloLightPanel) {
