@@ -79,6 +79,7 @@ import com.android.systemui.media.controls.domain.pipeline.MediaDataManager;
 import com.android.systemui.media.controls.ui.controller.MediaHierarchyManager;
 import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.plugins.qs.QS;
+import com.android.systemui.miraclo.MiraCLOSplitShade;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.screenrecord.ScreenRecordUxController;
@@ -175,6 +176,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     private final AccessibilityManager mAccessibilityManager;
     private final MetricsLogger mMetricsLogger;
     private final Resources mResources;
+    private boolean mMiracloPanelExpanded;
 
     /** Whether the notifications are displayed full width (no margins on the side). */
     private boolean mIsFullWidth;
@@ -612,7 +614,13 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                         MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(
                         MotionEvent.BUTTON_TERTIARY));
 
-        return twoFingerDrag || stylusButtonClickDrag || mouseButtonClickDrag;
+        // MiraCLO split shade: one finger down on the Quick Settings side opens Quick Settings.
+        final boolean miracloQsSide = action == MotionEvent.ACTION_DOWN && pointerCount == 1
+                && MiraCLOSplitShade.isEnabled(mQsFrame.getContext())
+                && MiraCLOSplitShade.isQsSide(mQsFrame.getContext(), event.getX(),
+                        mResources.getDisplayMetrics().widthPixels);
+
+        return twoFingerDrag || stylusButtonClickDrag || mouseButtonClickDrag || miracloQsSide;
     }
 
     @Override
@@ -622,6 +630,11 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
 
     @Override
     public void setPanelExpanded(boolean panelExpanded) {
+        // MiraCLO split shade: forget "notifications only" once the shade has closed again.
+        if (mMiracloPanelExpanded && !panelExpanded) {
+            MiraCLOSplitShade.showQuickSettings();
+        }
+        mMiracloPanelExpanded = panelExpanded;
         if (mQs != null) {
             mQs.setPanelExpanded(panelExpanded);
         }
@@ -723,6 +736,13 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         // Also allow QS to intercept if the touch is near the notch.
         mShadeTouchableRegionManager.updateRegionForNotch(mInterceptRegion);
         final boolean onHeader = mInterceptRegion.contains((int) x, (int) y);
+
+        // MiraCLO split shade: while only notifications show, Quick Settings opens only from
+        // its own side of the header.
+        if (MiraCLOSplitShade.isNotificationsOnly()) {
+            return onHeader && MiraCLOSplitShade.isQsSide(mQsFrame.getContext(), x,
+                    mResources.getDisplayMetrics().widthPixels);
+        }
 
         if (getExpanded()) {
             return onHeader || (yDiff < 0 && isTouchInQsArea(x, y));
@@ -1452,6 +1472,11 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             topPadding = MathUtils.lerp((float) keyguardNotificationStaticPadding,
                     (float) (getMaxExpansionHeight()), computeExpansionFraction());
             return topPadding;
+        } else if (MiraCLOSplitShade.isNotificationsOnly()) {
+            // MiraCLO split shade: notifications only. Quick Settings is hidden, so the list
+            // starts right under the shade header instead of under the space Quick Settings
+            // would take.
+            return Math.max(getHeaderHeight(), mQuickQsHeaderHeight);
         } else {
             topPadding = Math.max(mQsFrameTranslateController.getNotificationsTopPadding(
                     mExpansionHeight, mNotificationStackScrollLayoutController),
@@ -1676,7 +1701,8 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                     mRemoteInputManager.isRemoteInputActive());
         }
         boolean expandedShadeCollapsedQs = mShadeExpandedFraction == 1f
-                && mBarState != KEYGUARD && collapsedQs && expansionEnabled;
+                && mBarState != KEYGUARD && collapsedQs && expansionEnabled
+                && !MiraCLOSplitShade.isNotificationsOnly();
         if (action == MotionEvent.ACTION_DOWN && expandedShadeCollapsedQs) {
             // Down in the empty area while fully expanded - go to QS.
             mShadeLog.logMotionEvent(event, "handleQsTouch: down action, QS tracking enabled");
@@ -1710,6 +1736,10 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         if (action == MotionEvent.ACTION_DOWN && isFullyCollapsed && isExpansionEnabled()) {
             mTwoFingerExpandPossible = true;
         }
+        if (action == MotionEvent.ACTION_DOWN && isFullyCollapsed && isInStatusBar) {
+            MiraCLOSplitShade.onPullStarted(mQsFrame.getContext(), event.getX(),
+                    mResources.getDisplayMetrics().widthPixels);
+        }
         if (mTwoFingerExpandPossible && isOpenQsEvent(event) && isInStatusBar) {
             mMetricsLogger.count(COUNTER_PANEL_OPEN_QS, 1);
             setExpandImmediate(true);
@@ -1740,6 +1770,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             if (shouldQuickSettingsIntercept(event.getX(), event.getY(), -1, event)) {
                 mShadeLog.logMotionEvent(event,
                         "handleQsDown: down action, QS tracking enabled");
+                MiraCLOSplitShade.showQuickSettings();
                 setTracking(true);
                 onExpansionStarted();
                 mInitialHeightOnTouch = mExpansionHeight;
