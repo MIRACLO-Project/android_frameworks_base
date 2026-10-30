@@ -68,7 +68,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.approachLayout
 import androidx.compose.ui.layout.layout
@@ -155,6 +157,7 @@ import com.android.systemui.qs.panels.ui.compose.QuickQuickSettings
 import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.settingslib.volume.domain.interactor.AudioVolumeInteractor
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLiquidGlass
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOQsStyle
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
@@ -220,6 +223,7 @@ constructor(
 
     /** MiraCLO: whether the ColorOS-style Quick Settings layout is on ([MIRACLO_QS_STYLE]). */
     private var miracloQsStyle by mutableStateOf(false)
+    private var miracloLiquidGlass by mutableStateOf(false)
 
     /** MiraCLO: media sessions for the ColorOS-style QS media card. */
     private val miracloMediaSessions = MiraCLOMediaSessions()
@@ -233,7 +237,8 @@ constructor(
             context?.resources?.configuration?.orientation != Configuration.ORIENTATION_LANDSCAPE
 
     /** MiraCLO: Settings.Secure keys this fragment follows live. */
-    private val miracloSecureKeys = listOf(MIRACLO_QS_STYLE)
+    private val miracloSecureKeys =
+        listOf(MIRACLO_QS_STYLE, MIRACLO_LIQUID_GLASS, MIRACLO_LIQUID_GLASS_QS)
 
     /** MiraCLO: re-reads the MiraCLO settings whenever one of them changes. */
     private val miracloSettingsObserver =
@@ -281,6 +286,9 @@ constructor(
         val resolver = context?.contentResolver ?: return
         val userId = userTracker.userId
         miracloQsStyle = Settings.Secure.getIntForUser(resolver, MIRACLO_QS_STYLE, 0, userId) != 0
+        miracloLiquidGlass =
+            Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS, 0, userId) != 0 &&
+                Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS_QS, 1, userId) != 0
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -359,12 +367,26 @@ constructor(
     @Composable
     private fun Content(modifier: Modifier = Modifier) {
         PlatformTheme(isDarkTheme = if (notificationShadeBlur()) isSystemInDarkTheme() else true) {
-            // MiraCLO: lets the tiles know which Quick Settings style is on.
-            CompositionLocalProvider(LocalMiraCLOQsStyle provides miracloQsStyle) {
+            // MiraCLO: lets the tiles know which Quick Settings style and look are on.
+            CompositionLocalProvider(
+                LocalMiraCLOQsStyle provides miracloQsStyle,
+                LocalMiraCLOLiquidGlass provides miracloLiquidGlass,
+            ) {
+                // MiraCLO: without Liquid Glass the dark ColorOS QS is solid, with no blur: an
+                // opaque shade fades in behind it as QS expands (QQS and notifications untouched).
+                val miracloSolid =
+                    miracloQsStyle && !miracloLiquidGlass &&
+                        MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 ProvideShortcutHelperIndication(interactionsConfig = interactionsConfig()) {
                     Box(
                         modifier =
                             modifier
+                                .thenIf(miracloSolid) {
+                                    Modifier.drawBehind {
+                                        val p = viewModel.expansionState.progress.coerceIn(0f, 1f)
+                                        if (p > 0f) drawRect(MiraCLOSolidShade, alpha = p)
+                                    }
+                                }
                                 .layout { measurable, constraints ->
                                     measurable.measure(constraints).run {
                                         layout(width, height) {
@@ -1687,5 +1709,12 @@ private fun AlwaysDarkMode(content: @Composable () -> Unit) {
     }
 }
 
+/** MiraCLO: the solid dark shade behind the ColorOS QS when Liquid Glass is off. */
+private val MiraCLOSolidShade = Color(0xFF0B0C0F)
+
 /** MiraCLO: Settings.Secure key for the ColorOS-style Quick Settings layout (0 = off, 1 = on). */
 private const val MIRACLO_QS_STYLE = "miraclo_qs_style"
+
+/** MiraCLO: Settings.Secure key for Liquid Glass (Settings > Display), 0 = off, 1 = on. */
+private const val MIRACLO_LIQUID_GLASS = "miraclo_liquid_glass"
+private const val MIRACLO_LIQUID_GLASS_QS = "miraclo_lg_qs"

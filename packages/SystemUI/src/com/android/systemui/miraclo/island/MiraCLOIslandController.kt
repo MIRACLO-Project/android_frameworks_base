@@ -20,6 +20,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.media.session.MediaController
 import android.net.Uri
 import android.os.Handler
 import android.os.SystemClock
@@ -39,6 +40,8 @@ import com.android.systemui.media.controls.shared.model.MediaData
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.plugins.statusbar.StatusBarStateController
 import com.android.systemui.screenrecord.ScreenRecordUxController
+import com.android.systemui.screenrecord.data.repository.ScreenRecordRepository
+import android.media.projection.StopReason
 import com.android.systemui.shade.ShadeExpansionStateManager
 import com.android.systemui.shared.system.TaskStackChangeListener
 import com.android.systemui.shared.system.TaskStackChangeListeners
@@ -48,6 +51,7 @@ import com.android.systemui.statusbar.StatusBarState
 import com.android.systemui.statusbar.notification.collection.NotificationEntry
 import com.android.systemui.statusbar.notification.interruption.NotificationInterruptSuppressor
 import com.android.systemui.statusbar.notification.interruption.VisualInterruptionDecisionProvider
+import java.io.PrintWriter
 import java.util.concurrent.Executor
 import javax.inject.Inject
 
@@ -88,6 +92,7 @@ constructor(
     private val statusBarStateController: StatusBarStateController,
     private val activityStarter: ActivityStarter,
     private val screenRecordController: ScreenRecordUxController,
+    private val screenRecordRepository: ScreenRecordRepository,
     private val interruptionDecisionProvider: VisualInterruptionDecisionProvider,
     @Main private val mainHandler: Handler,
     @Background private val bgExecutor: Executor,
@@ -101,6 +106,10 @@ constructor(
             context,
             mainHandler,
             screenRecordController,
+            {
+                // Off the main thread, like the status bar chip's Stop.
+                bgExecutor.execute { screenRecordRepository.stopRecording(StopReason.STOP_PRIVACY_CHIP) }
+            },
             object : IslandSystemSources.Sink {
                 override fun put(activity: IslandActivity) = putActivity(activity)
 
@@ -153,6 +162,8 @@ constructor(
     /** When the current music was paused (uptime), or 0 while it plays. */
     private var mediaPausedAt = 0L
     private var mediaPausedPackage: String? = null
+    /** The app picked from the music card's recent albums; it stays the music card until another starts playing. */
+    private var chosenPackage: String? = null
     private val pausedTimeoutRunnable = Runnable { update() }
 
     /** All live activities by key. */
@@ -178,6 +189,9 @@ constructor(
     // visible tasks are read again once that has finished.
     private val foregroundRecheck = Runnable { refreshForeground() }
     private val foregroundRecheckLate = Runnable { refreshForeground() }
+    // Some apps finish going to the background (or into their small window) after an animation
+    // longer than a second; one more look once it is surely over.
+    private val foregroundRecheckSettled = Runnable { refreshForeground() }
 
     private val settingsObserver =
         object : ContentObserver(mainHandler) {
@@ -193,6 +207,13 @@ constructor(
             override fun onTaskStackChanged() = onTasksChanged()
 
             override fun onActivityUnpinned() = onTasksChanged()
+
+            // YouTube's minimised player: the app moves into its small window, or back, without
+            // always changing the task stack, so these count as changes too.
+            override fun onActivityPinned(packageName: String, userId: Int, taskId: Int, stackId: Int) =
+                onTasksChanged()
+
+            override fun onTaskMovedToFront(taskId: Int) = onTasksChanged()
         }
 
     override fun start() {
@@ -277,6 +298,28 @@ constructor(
         )
     }
 
+    /**
+     * adb shell dumpsys activity service com.android.systemui/.SystemUIService MiraCLOIslandController
+     */
+    override fun dump(pw: PrintWriter, args: Array<out String>) {
+        pw.println("MiraCLOIslandController:")
+        pw.println("  enabled=$islandEnabled portrait=${isPortrait()} statusBarShowing=$statusBarShowing " +
+            "dozing=$dozing barState=$barState shadeOpen=$shadeOpen window=${view != null}")
+        pw.println("  foreground=$foregroundPackages launching=$launchingPackage chosen=$chosenPackage")
+        pw.println("  cards=$cards dismissed=${dismissed.keys}")
+        pw.println("  order (newest first):")
+        for (key in order) {
+            val a = activities[key] ?: continue
+            pw.println("    $key kind=${a.kind} pkg=${a.packageName} shown=${isShown(a)} " +
+                "title=${a.title} clock=${a.clock} value=${a.value} alert=${a.alert}")
+        }
+        pw.println("  media sessions:")
+        for ((k, d) in sessions) {
+            pw.println("    $k pkg=${d.packageName} active=${d.active} resumption=${d.resumption} " +
+                "playing=${d.isPlaying} song=${d.song}")
+        }
+    }
+
     private fun readSettings() {
         val user = ActivityManager.getCurrentUser()
         val r = context.contentResolver
@@ -298,7 +341,8 @@ constructor(
         config =
             MiraCLOIslandView.Config(
                 touchGlow = on(KEY_TOUCH_GLOW, 1),
-                glass = on(KEY_GLASS, 0),
+                glass = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND, 1),
+                glassPills = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND_PILLS, 1),
                 ambientGlow = on(KEY_AMBIENT_GLOW, 1),
                 haptics = on(KEY_HAPTICS, 1),
             )
@@ -311,8 +355,10 @@ constructor(
         refreshForeground()
         mainHandler.removeCallbacks(foregroundRecheck)
         mainHandler.removeCallbacks(foregroundRecheckLate)
+        mainHandler.removeCallbacks(foregroundRecheckSettled)
         mainHandler.postDelayed(foregroundRecheck, FOREGROUND_RECHECK_MS)
         mainHandler.postDelayed(foregroundRecheckLate, FOREGROUND_RECHECK_LATE_MS)
+        mainHandler.postDelayed(foregroundRecheckSettled, FOREGROUND_RECHECK_SETTLED_MS)
     }
 
     /** Reads the visible tasks off the main thread, then updates on the main thread. */
@@ -340,7 +386,17 @@ constructor(
                 }
             mainHandler.post {
                 if (packages == foregroundPackages) return@post
+                // The app the user just left is what they care about now: its activity comes
+                // back as the main pill, and the others move aside.
+                val leftApps = foregroundPackages - packages
                 foregroundPackages = packages
+                if (leftApps.isNotEmpty()) {
+                    val back = order.filter { activities[it]?.packageName in leftApps }
+                    if (back.isNotEmpty()) {
+                        order.removeAll(back.toSet())
+                        order.addAll(0, back)
+                    }
+                }
                 // Opening the app again brings its swiped-away activity back (once minimised).
                 dismissed.keys.removeAll { key -> activities[key]?.packageName in packages }
                 if (launchingPackage != null && launchingPackage in packages) launchingPackage = null
@@ -360,6 +416,8 @@ constructor(
             if (oldKey != null && oldKey != key) sessions.remove(oldKey)
             sessions.remove(key)
             sessions[key] = data
+            // Something else started playing: it takes the music card again.
+            if (data.isPlaying == true && data.packageName != chosenPackage) chosenPackage = null
             refreshMedia()
         }
     }
@@ -374,7 +432,35 @@ constructor(
     /** The session to show: a playing one first, otherwise the latest active one. */
     private fun currentSession(): MediaData? {
         val active = sessions.values.filter { it.active && !it.resumption }
+        chosenPackage?.let { p -> active.lastOrNull { it.packageName == p }?.let { return it } }
         return active.lastOrNull { it.isPlaying == true } ?: active.lastOrNull()
+    }
+
+    /** Plays a recent album from the music card in place of the current music. */
+    private fun playRecent(recent: MediaData) {
+        val current = currentSession()
+        try {
+            if (current != null && current.packageName != recent.packageName && current.isPlaying == true) {
+                current.token?.let { MediaController(context, it).transportControls.pause() }
+            }
+            val token = recent.token
+            when {
+                token != null && !recent.resumption -> MediaController(context, token).transportControls.play()
+                recent.resumeAction != null -> recent.resumeAction?.run()
+                else -> {
+                    // Nothing to play from here: open the app instead.
+                    recent.clickIntent?.let { activityStarter.postStartActivityDismissingKeyguard(it) }
+                    return
+                }
+            }
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Could not play ${recent.packageName}", e)
+            return
+        }
+        // Swap at once; the app's own update confirms it a moment later.
+        chosenPackage = recent.packageName
+        if (recent.resumption) return // A resumed player arrives as a new session.
+        refreshMedia()
     }
 
     private fun refreshMedia() {
@@ -564,9 +650,9 @@ constructor(
                 .filter { isShown(it) }
                 .take(if (severalActivities) MAX_VISIBLE else 1)
         cards.retainAll { key -> visible.any { it.key == key } }
-        publishChipFilter(visible)
 
         val shown = statusBarShowing && !dozing && barState == StatusBarState.SHADE
+        publishChipFilter(visible, islandShowing = shown && !shadeOpen && visible.isNotEmpty())
         // Cards fold away while hidden or while the shade comes down over them.
         if (!shown || shadeOpen) cards.clear()
 
@@ -583,12 +669,13 @@ constructor(
     }
 
     /** The status bar leaves out the chips of what the island shows (see [IslandChipFilter]). */
-    private fun publishChipFilter(visible: List<IslandActivity>) {
+    private fun publishChipFilter(visible: List<IslandActivity>, islandShowing: Boolean = false) {
         IslandChipFilter.set(
             IslandChipFilter.State(
                 hideCall = visible.any { it.kind == IslandKind.CALL },
                 hideScreenRecord = visible.any { it.kind == IslandKind.SCREEN_RECORD },
                 notificationKeys = visible.map { it.key }.toSet(),
+                hideAll = islandShowing,
             )
         )
     }
@@ -644,6 +731,8 @@ constructor(
                 cards.clear()
                 update()
             }
+
+            override fun onPlayRecent(recent: MediaData) = playRecent(recent)
 
             override fun onAction(key: String, action: IslandAction) {
                 try {
@@ -745,6 +834,7 @@ constructor(
         private const val LAUNCH_GRACE_MS = 1500L
         private const val FOREGROUND_RECHECK_MS = 400L
         private const val FOREGROUND_RECHECK_LATE_MS = 1000L
+        private const val FOREGROUND_RECHECK_SETTLED_MS = 2500L
         private const val PAUSED_TIMEOUT_MS = 10 * 60 * 1000L
         private const val WINDOW_HEIGHT_FRACTION = 0.62f
         private val DEFAULT_ACCENT = 0xFF34D399.toInt()
@@ -767,7 +857,10 @@ constructor(
         const val KEY_EARBUDS = "miraclo_island_earbuds"
         const val KEY_RINGER = "miraclo_island_ringer"
         const val KEY_LOW_BATTERY = "miraclo_island_low_battery"
-        const val KEY_GLASS = "miraclo_island_glass"
+        // Liquid Glass is set in Settings > Display > Liquid Glass: main switch + one per place.
+        const val KEY_LIQUID_GLASS = "miraclo_liquid_glass"
+        const val KEY_LG_ISLAND = "miraclo_lg_island"
+        const val KEY_LG_ISLAND_PILLS = "miraclo_lg_island_pills"
 
         private val ALL_KEYS =
             listOf(
@@ -788,7 +881,9 @@ constructor(
                 KEY_EARBUDS,
                 KEY_RINGER,
                 KEY_LOW_BATTERY,
-                KEY_GLASS,
+                KEY_LIQUID_GLASS,
+                KEY_LG_ISLAND,
+                KEY_LG_ISLAND_PILLS,
             )
     }
 }

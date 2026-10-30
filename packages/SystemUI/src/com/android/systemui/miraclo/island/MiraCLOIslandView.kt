@@ -100,6 +100,9 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
         /** Fold every card back into its pill (tap outside, swipe a card up). */
         fun onCollapseAll()
 
+        /** A recently played album on the music card: play it here, in place of the current one. */
+        fun onPlayRecent(recent: MediaData)
+
         /** A card button (pause, lap, end call, ...). */
         fun onAction(key: String, action: IslandAction)
 
@@ -113,6 +116,8 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
         val haptics: Boolean = true,
         /** Liquid Glass cards: clearer glass with a bright edge instead of the frosted dark glass. */
         val glass: Boolean = false,
+        /** Liquid Glass pills and bubbles instead of the black pill. */
+        val glassPills: Boolean = false,
     )
 
     /**
@@ -342,9 +347,11 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
     private fun publishStatusBarSpace() {
         if (released || !shownTarget || shadeFraction >= SHADE_HIDE_FRACTION) {
             IslandStatusBarSpace.request(IslandStatusBarSpace.NONE)
+            IslandStatusBarSpace.setActive(false)
             return
         }
         val live = { a: IslandActivity? -> a != null && items[a.key]?.leaving == false }
+        IslandStatusBarSpace.setActive(state.pills.any { live(it) } || state.cards.any { live(it) })
         val mode =
             when {
                 live(state.pills.getOrNull(1)) || live(state.pills.getOrNull(2)) -> IslandStatusBarSpace.SIDE_PILLS
@@ -768,16 +775,35 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
          * behind stays visible, with a bright specular edge (top-left and bottom-right) and a
          * soft inner light.
          */
+        /** Which look is applied now: pills and cards can each be Liquid Glass or not. */
+        private var liquidNow = false
+
+        private fun liquidFor(c: Float) = if (c < 0.5f) config.glassPills else config.glass
+
         private fun applyGlassStyle() {
-            val glass = config.glass
+            val glass = liquidFor(geo.c)
+            liquidNow = glass
             blur?.setBlurRadius(dp(if (glass) 14 else 36))
             blur?.setColor(if (glass) 0x4D10131C else 0x8C141519.toInt())
             if (width > 0) updateRimShaders(width, height)
             invalidate()
         }
 
+        private val glassMatrix = Matrix()
+
+        /**
+         * The rim and gloss gradients are made for the full card; a pill or bubble is a smaller
+         * shape at the top-left of this view, so the gradients are scaled down onto it.
+         */
+        private fun fitGlassShaders(g: Geo) {
+            if (!liquidNow || width <= 0 || height <= 0) return
+            glassMatrix.setScale(g.w / width, g.h / height)
+            cardRim.shader?.setLocalMatrix(glassMatrix)
+            gloss.shader?.setLocalMatrix(glassMatrix)
+        }
+
         private fun updateRimShaders(w: Int, h: Int) {
-            if (config.glass) {
+            if (liquidNow) {
                 gloss.shader = LinearGradient(0f, 0f, 0f, h * 0.5f, 0x38FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP)
                 cardRim.shader = LinearGradient(
                     0f, 0f, w.toFloat(), h.toFloat(),
@@ -980,7 +1006,8 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
             aura.translationY = translationY - auraMargin
             aura.alpha = if (config.ambientGlow) smooth(g.c, 0.25f, 1f) * alpha else 0f
             aura.cardHeight = g.h
-            blur?.alpha = (255 * g.c).toInt().coerceIn(0, 255)
+            // Liquid Glass: pills and bubbles are glass too; otherwise only cards are.
+            blur?.alpha = if (config.glassPills) 255 else (255 * g.c).toInt().coerceIn(0, 255)
             invalidateOutline()
             invalidate()
         }
@@ -1014,17 +1041,21 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
         override fun onDraw(canvas: Canvas) {
             val g = geo
             clip.roundOut(clipInt)
-            if (g.c > 0.001f) {
+            if (liquidFor(g.c) != liquidNow) applyGlassStyle()
+            val glassPill = config.glassPills
+            if (g.c > 0.001f || glassPill) {
+                val surface = if (glassPill) 1f else g.c
+                fitGlassShaders(g)
                 val b = blur
                 if (b != null) {
                     b.setCornerRadius(g.r)
                     b.setBounds(clipInt.left, clipInt.top, clipInt.right, clipInt.bottom)
                     b.draw(canvas)
                 } else {
-                    fill.alpha = (0xE6 * g.c).toInt()
+                    fill.alpha = (0xE6 * surface).toInt()
                     canvas.drawRoundRect(clip, g.r, g.r, fill)
                 }
-                gloss.alpha = (255 * g.c).toInt().coerceIn(0, 255)
+                gloss.alpha = (255 * surface).toInt().coerceIn(0, 255)
                 canvas.drawRoundRect(clip, g.r, g.r, gloss)
             }
         }
@@ -1045,8 +1076,9 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
                     floatArrayOf(0f, 0.4f, 1f), Shader.TileMode.CLAMP)
                 canvas.drawCircle(touchX, touchY, radius, touchGlow)
             }
-            // Black skin: the pill / bubble body, fading into glass as it becomes a card.
-            val skinA = 1f - smooth(g.c, 0f, 0.6f)
+            // Black skin: the pill / bubble body, fading into glass as it becomes a card. With
+            // Liquid Glass there is no skin: pills are the same glass as the cards.
+            val skinA = if (config.glassPills) 0f else 1f - smooth(g.c, 0f, 0.6f)
             if (skinA > 0f && g.h != shaderH) {
                 shaderH = g.h
                 skin.shader = LinearGradient(0f, 0f, 0f, g.h, 0xFF16171C.toInt(), Color.BLACK, Shader.TileMode.CLAMP)
@@ -1068,8 +1100,8 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
                 val i = pillRim.strokeWidth / 2f
                 canvas.drawRoundRect(i, i, g.w - i, g.h - i, g.r, g.r, pillRim)
             }
-            if (g.c > 0f) {
-                cardRim.alpha = (255 * g.c).toInt().coerceIn(0, 255)
+            if (g.c > 0f || config.glassPills) {
+                cardRim.alpha = if (config.glassPills) 255 else (255 * g.c).toInt().coerceIn(0, 255)
                 val i = cardRim.strokeWidth / 2f
                 canvas.drawRoundRect(i, i, g.w - i, g.h - i, g.r, g.r, cardRim)
             }
@@ -1395,6 +1427,24 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
     }
 
     /** The island's own glyph for an activity, or null when it shows the app's icon. */
+    /** The island's own icon for a common button label (Pause, Resume, Lap, Reset), or null. */
+    private fun ownGlyph(label: CharSequence): Glyphs.Glyph? {
+        val l = label.toString().lowercase()
+        return when {
+            "pause" in l -> Glyphs.Glyph.PAUSE
+            "resume" in l || "start" in l || l == "play" || "continue" in l -> Glyphs.Glyph.PLAY
+            "lap" in l -> Glyphs.Glyph.LAP
+            "reset" in l -> Glyphs.Glyph.RESET
+            "stop" in l || "dismiss" in l -> Glyphs.Glyph.STOP
+            else -> null
+        }
+    }
+
+    private fun isAddMinute(label: CharSequence): Boolean {
+        val l = label.toString().lowercase().replace(" ", "")
+        return l.startsWith("+1") || l.startsWith("add1") || "1min" in l
+    }
+
     private fun glyphFor(a: IslandActivity): Glyphs.Glyph? =
         when (a.symbol) {
             IslandSymbol.RECORD -> Glyphs.Glyph.RECORD
@@ -1621,7 +1671,9 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
             a.actions.forEachIndexed { i, action ->
                 val b = actionButton(action, a)
                 b.setOnClickListener { item.sendAction(action) }
-                buttons.addView(b, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(46)).apply {
+                // Round buttons stay round: a fixed square, never stretched to their content.
+                val w = if (b is ImageButton) dp(46) else LinearLayout.LayoutParams.WRAP_CONTENT
+                buttons.addView(b, LinearLayout.LayoutParams(w, dp(46)).apply {
                     if (i > 0) marginStart = dp(10)
                 })
             }
@@ -1637,6 +1689,35 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
                 }
             val fg = if (action.style == IslandAction.Style.PRIMARY && isLight(accent)) 0xFF111111.toInt() else Color.WHITE
             val answer = a.kind == IslandKind.CALL && action.style == IslandAction.Style.PRIMARY
+            // Timer, stopwatch and other everyday buttons get the island's own icons, so they all
+            // look alike whatever icons the app ships ("+1:00" stays as text).
+            val own = if (a.kind == IslandKind.CALL) null else ownGlyph(action.label)
+            val plusMinute = a.kind != IslandKind.CALL && isAddMinute(action.label)
+            if (plusMinute) {
+                return TextView(context).apply {
+                    text = "+1:00"
+                    setTextColor(fg)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                    typeface = Typeface.create(Typeface.DEFAULT, 600, false)
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                    minWidth = dp(46)
+                    setPadding(dp(14), 0, dp(14), 0)
+                    background = roundRect(bg, dp(23).toFloat())
+                    isClickable = true
+                    contentDescription = action.label
+                }
+            }
+            if (own != null && action.style != IslandAction.Style.DANGER) {
+                return ImageButton(context).apply {
+                    background = circle(bg)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    val pad = dp(if (own == Glyphs.Glyph.LAP || own == Glyphs.Glyph.RESET) 12 else 13)
+                    setPadding(pad, pad, pad, pad)
+                    setImageDrawable(GlyphDrawable(own, fg))
+                    contentDescription = action.label
+                }
+            }
             return if (action.style == IslandAction.Style.DANGER || action.icon != null || answer) {
                 ImageButton(context).apply {
                     background = circle(if (answer) 0xFF22C55E.toInt() else bg)
@@ -1876,19 +1957,9 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
                 if (r != null) {
                     tile.setImageIcon(r.artwork)
                     tile.contentDescription = "Play ${r.song ?: r.app ?: ""}"
-                    tile.setOnClickListener {
-                        val resume = r.resumeAction
-                        if (resume != null) {
-                            resume.run()
-                        } else {
-                            try {
-                                r.clickIntent?.send()
-                            } catch (e: android.app.PendingIntent.CanceledException) {
-                                // The app is gone; nothing to open.
-                            }
-                        }
-                        host.onCollapseAll()
-                    }
+                    // Plays that song right here: it becomes the music card, and the one playing
+                    // now drops into this row. The card stays open.
+                    tile.setOnClickListener { host.onPlayRecent(r) }
                 } else {
                     tile.visibility = INVISIBLE
                 }
@@ -2056,6 +2127,10 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
             BATTERY_LOW(true, "M4 8h14v8H4zM20 11v2M7 11v2"),
             DOT(false, "M12 8a4 4 0 1 1 0 8a4 4 0 1 1 0-8z"),
             NOTE(false, "M9 17.5V6l10-2v11.5a2.6 2.6 0 1 1-1.8-2.5V7.6L10.8 8.9v8.6a2.6 2.6 0 1 1-1.8-2.5z"),
+            PAUSE(false, "M7.5 5h3a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5zM13.5 5h3a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 .5-.5z"),
+            PLAY(false, "M8 5.6v12.8a1 1 0 0 0 1.5.86l10.2-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z"),
+            LAP(true, "M6 21V4M6 4h11l-2.5 4L17 12H6"),
+            RESET(true, "M5 12a7 7 0 1 0 2.05-4.95M5 4.5V8h3.5"),
         }
 
         private val paths = HashMap<Glyph, Path>()
