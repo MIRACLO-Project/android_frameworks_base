@@ -16,6 +16,8 @@
 
 package com.android.systemui.qs.ui.composable
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.android.systemui.qs.composefragment.MiraCLOOverlayQs
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -133,6 +135,7 @@ constructor(
     private val quickSettingsContainerViewModelFactory: QuickSettingsContainerViewModel.Factory,
     private val notificationStackScrollView: Lazy<NotificationScrollView>,
     private val notificationsPlaceholderViewModelFactory: NotificationsPlaceholderViewModel.Factory,
+    private val miracloQs: MiraCLOOverlayQs,
 ) : Overlay {
 
     override val key = Overlays.QuickSettingsShade
@@ -157,10 +160,12 @@ constructor(
                 contentViewModelFactory.create(coroutineScope)
             }
         val useBrightnessMirrorInOverlay = useBrightnessMirrorInOverlay()
+        // MiraCLO: the ColorOS brightness slider has no mirror; a stuck mirror would fade the
+        // panel and turn its gestures off.
         val quickSettingsContainerViewModel =
-            rememberViewModel("QuickSettingsShadeOverlayContainer") {
+            rememberViewModel("QuickSettingsShadeOverlayContainer", key = miracloQs.qsStyle) {
                 quickSettingsContainerViewModelFactory.create(
-                    supportsBrightnessMirroring = useBrightnessMirrorInOverlay
+                    supportsBrightnessMirroring = useBrightnessMirrorInOverlay && !miracloQs.qsStyle
                 )
             }
         val hunPlaceholderViewModel =
@@ -191,6 +196,16 @@ constructor(
         }
 
         LaunchedEffectWithLifecycle(key1 = Unit) { contentViewModel.detectShadeModeChanges() }
+        remember { miracloQs.watch() }
+        // MiraCLO: ColorOS Quick Settings brings its own glass, so the panel is clear with Liquid
+        // Glass and solid dark without it (as in the old shade).
+        val miracloPanelColor: Color? =
+            when {
+                !miracloQs.qsStyle -> null
+                miracloQs.liquidGlass -> Color.Transparent
+                isSystemInDarkTheme() -> Color(0xFF0B0C0F)
+                else -> null
+            }
 
         Box(
             modifier =
@@ -227,10 +242,12 @@ constructor(
                         )
                     }
                 },
+                panelColor = miracloPanelColor,
             ) {
                 QuickSettingsContainer(
                     contentViewModel = contentViewModel,
                     containerViewModel = quickSettingsContainerViewModel,
+                    miracloQs = miracloQs,
                 )
             }
             SnoozableHeadsUpNotificationPlaceholder(
@@ -263,6 +280,7 @@ private fun useBrightnessMirrorInOverlay(): Boolean {
 private fun ContentScope.QuickSettingsContainer(
     contentViewModel: QuickSettingsShadeOverlayContentViewModel,
     containerViewModel: QuickSettingsContainerViewModel,
+    miracloQs: MiraCLOOverlayQs,
     modifier: Modifier = Modifier,
 ) {
     val isEditing by containerViewModel.editModeViewModel.isEditing.collectAsStateWithLifecycle()
@@ -325,7 +343,50 @@ private fun ContentScope.QuickSettingsContainer(
                 )
             }
 
-            ShadeBodyState.Default -> {
+            ShadeBodyState.Default -> if (miracloQs.qsStyle) {
+                // MiraCLO: the ColorOS Quick Settings, with the toolbar (edit, settings, power)
+                // below it like the ColorOS footer.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = modifier.sysuiResTag("quick_settings_panel"),
+                ) {
+                    VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    ) {
+                        with(miracloQs) {
+                            Content(
+                                container = containerViewModel,
+                                glassAlpha = {
+                                    // Follows the panel opening and closing, like the old shade.
+                                    val t = layoutState.transitionState
+                                    if (t is TransitionState.Transition &&
+                                        t.isTransitioningFromOrTo(contentKey)
+                                    ) {
+                                        t.progressTo(contentKey).coerceIn(0f, 1f)
+                                    } else {
+                                        1f
+                                    }
+                                },
+                            )
+                        }
+                        VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+                        val toolbarViewModel =
+                            rememberViewModel("MiraCLOQuickSettingsToolbar") {
+                                contentViewModel.toolbarViewModelFactory.create()
+                            }
+                        Toolbar(
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .requiredHeight(QuickSettingsShade.Dimensions.ToolbarHeight),
+                            viewModel = toolbarViewModel,
+                            isFullyVisible = { layoutState.isIdle(contentKey) },
+                        )
+                        VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+                    }
+                }
+            } else {
                 QuickSettingsLayout(
                     qsContainerViewModel = containerViewModel,
                     toolbarViewModelFactory = contentViewModel.toolbarViewModelFactory,
