@@ -169,6 +169,7 @@ constructor(
         tile: TileViewModel,
         listening: () -> Boolean,
         modifier: Modifier = Modifier,
+        iconOnly: Boolean = false,
     ) {
         val context = LocalContext.current
         val textFeedbackViewModel =
@@ -180,7 +181,7 @@ constructor(
         Element(tile.spec.toElementKey(), modifier) {
             Tile(
                 tile = tile,
-                iconOnly = false,
+                iconOnly = iconOnly,
                 squishiness = { 1f },
                 tileHapticsViewModelFactory = tileHapticsViewModelFactory,
                 coroutineScope = scope,

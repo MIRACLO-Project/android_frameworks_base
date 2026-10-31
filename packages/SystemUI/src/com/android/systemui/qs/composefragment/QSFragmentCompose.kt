@@ -167,7 +167,9 @@ import com.android.systemui.qs.panels.ui.compose.TileGrid
 import com.android.settingslib.volume.domain.interactor.AudioVolumeInteractor
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLiquidGlass
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLook
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOLook
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.composable.QuickSettingsShade.systemGestureExclusionInShade
@@ -232,6 +234,8 @@ constructor(
 
     /** MiraCLO: whether the ColorOS-style Quick Settings layout is on ([MIRACLO_QS_STYLE]). */
     private var miracloQsStyle by mutableStateOf(false)
+    /** MiraCLO: the Quick Settings look chosen in Settings (see [MiraCLOLook]). */
+    private var miracloLook by mutableIntStateOf(MiraCLOLook.COLOROS)
     private var miracloLiquidGlass by mutableStateOf(false)
     private var miracloRefraction by mutableStateOf(false)
     private var miracloGlow by mutableStateOf(false)
@@ -302,7 +306,10 @@ constructor(
     private fun readMiraCLOSettings() {
         val resolver = context?.contentResolver ?: return
         val userId = userTracker.userId
-        miracloQsStyle = Settings.Secure.getIntForUser(resolver, MIRACLO_QS_STYLE, 0, userId) != 0
+        val style = Settings.Secure.getIntForUser(resolver, MIRACLO_QS_STYLE, 0, userId)
+        miracloQsStyle = style != 0
+        miracloLook =
+            if (style in MiraCLOLook.COLOROS..MiraCLOLook.ONEUI) style else MiraCLOLook.COLOROS
         miracloLiquidGlass =
             Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS, 0, userId) != 0 &&
                 Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS_QS, 1, userId) != 0
@@ -400,6 +407,7 @@ constructor(
             // MiraCLO: lets the tiles know which Quick Settings style and look are on.
             CompositionLocalProvider(
                 LocalMiraCLOQsStyle provides miracloQsStyle,
+                LocalMiraCLOLook provides miracloLook,
                 LocalMiraCLOLiquidGlass provides miracloLiquidGlass,
                 LocalMiraCLORefraction provides miracloRefraction,
                 LocalMiraCLOGlassAlpha provides {
