@@ -193,10 +193,6 @@ import java.util.Arrays;
 import android.os.AsyncTask;
 
 // QTI_END: 2019-05-01: Core: IOP: Fix and rebase PreferredApps.
-// QTI_BEGIN: 2020-06-27: Core: Passing every activity state change to Servicetracker HAL.
-import vendor.qti.hardware.servicetracker.V1_2.IServicetracker;
-
-// QTI_END: 2020-06-27: Core: Passing every activity state change to Servicetracker HAL.
 // TODO: This class has become a dumping ground. Let's
 // - Move things relating to the hierarchy to RootWindowContainer
 // - Move things relating to activity life cycles to maybe a new class called ActivityLifeCycler
@@ -323,10 +319,6 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
     private PermissionManager mPermissionManager;
     private VirtualDeviceManagerInternal mVirtualDeviceManagerInternal;
 
-// QTI_BEGIN: 2020-06-27: Core: Passing every activity state change to Servicetracker HAL.
-    private IServicetracker mServicetracker;
-
-// QTI_END: 2020-06-27: Core: Passing every activity state change to Servicetracker HAL.
     /** Common synchronization logic used to save things to disks. */
     PersisterQueue mPersisterQueue;
     LaunchParamsPersister mLaunchParamsPersister;
@@ -533,30 +525,6 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
         mLaunchParamsPersister.onSystemReady();
     }
 
-// QTI_BEGIN: 2020-06-27: Core: Passing every activity state change to Servicetracker HAL.
-    public IServicetracker getServicetrackerInstance() {
-        if (mServicetracker == null) {
-            try {
-                mServicetracker = IServicetracker.getService(false);
-            } catch (java.util.NoSuchElementException e) {
-                // Service doesn't exist or cannot be opened logged below
-            } catch (RemoteException e) {
-                Slog.e(TAG, "Failed to get servicetracker interface", e);
-                return null;
-            }
-            if (mServicetracker == null) {
-                Slog.w(TAG, "servicetracker HIDL not available");
-                return null;
-            }
-        }
-        return mServicetracker;
-    }
-
-    public void destroyServicetrackerInstance() {
-        mServicetracker = null;
-    }
-
-// QTI_END: 2020-06-27: Core: Passing every activity state change to Servicetracker HAL.
     void onUserUnlocked(int userId) {
         // Only start persisting when the first user is unlocked. The method call is
         // idempotent so there is no side effect to call it again when the second user is

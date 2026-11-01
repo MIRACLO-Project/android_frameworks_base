@@ -237,8 +237,6 @@ java_library_static {
         "SurfaceFlingerProperties",
         "com.android.sysprop.watchdog",
         "securebox",
-        "vendor.qti.hardware.servicetracker-V1.0-java",
-        "vendor.qti.hardware.servicetracker-V1.2-java",
         "vendor.qti.hardware.servicetrackeraidl-V1-java",
         "apache-commons-math",
         "apache-commons-compress",
