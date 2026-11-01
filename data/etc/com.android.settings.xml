@@ -16,6 +16,7 @@
   -->
 <permissions>
     <privapp-permissions package="com.android.settings">
+        <permission name="android.permission.READ_WALLPAPER_INTERNAL"/>
         <permission name="android.permission.ACCESS_CHECKIN_PROPERTIES"/>
         <permission name="android.permission.ACCESS_NOTIFICATIONS"/>
         <permission name="android.permission.BACKUP"/>
