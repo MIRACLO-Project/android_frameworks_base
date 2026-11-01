@@ -294,12 +294,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
-// QTI_BEGIN: 2019-06-24: Core: Inform Servicetracker HAL about Service Lifecycle events
-import vendor.qti.hardware.servicetracker.V1_0.IServicetracker;
-import vendor.qti.hardware.servicetracker.V1_0.ServiceData;
-import vendor.qti.hardware.servicetracker.V1_0.ClientData;
-
-// QTI_END: 2019-06-24: Core: Inform Servicetracker HAL about Service Lifecycle events
 public final class ActiveServices {
     private static final String TAG = TAG_WITH_CLASS_NAME ? "ActiveServices" : TAG_AM;
     private static final String TAG_MU = TAG + POSTFIX_MU;
@@ -563,7 +557,6 @@ public final class ActiveServices {
     static final int LAST_ANR_LIFETIME_DURATION_MSECS = 2 * 60 * 60 * 1000; // Two hours
 
 // QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-    private vendor.qti.hardware.servicetracker.V1_0.IServicetracker mServicetracker;
     private vendor.qti.hardware.servicetrackeraidl.IServicetracker  mServicetracker_aidl;
 
 // QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
@@ -937,26 +930,6 @@ public final class ActiveServices {
         }
     }
 
-// QTI_BEGIN: 2019-06-24: Core: Inform Servicetracker HAL about Service Lifecycle events
-    private boolean getServicetrackerInstance() {
-        if (mServicetracker == null ) {
-            try {
-                mServicetracker = IServicetracker.getService(false);
-            } catch (java.util.NoSuchElementException e) {
-                // Service doesn't exist or cannot be opened logged below
-            } catch (RemoteException e) {
-                if (DEBUG_SERVICE) Slog.e(TAG, "Failed to get servicetracker interface", e);
-                return false;
-            }
-            if (mServicetracker == null) {
-                if (DEBUG_SERVICE) Slog.w(TAG, "servicetracker HIDL not available");
-                return false;
-            }
-        }
-        return true;
-    }
-
-// QTI_END: 2019-06-24: Core: Inform Servicetracker HAL about Service Lifecycle events
 // QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
     private boolean getAIDLServicetrackerInstance() {
 // QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
@@ -4342,47 +4315,6 @@ public final class ActiveServices {
         }
     }
 
-    private void getServiceTrackerHidlData(vendor.qti.hardware.servicetracker.V1_0.ServiceData sData,
-            vendor.qti.hardware.servicetracker.V1_0.ClientData cData,
-            ServiceRecord r, ConnectionRecord connrec, ProcessRecord callerApp, boolean unbind) {
-        if (unbind) {
-            sData.packageName = connrec.binding.service.packageName;
-            sData.processName = connrec.binding.service.shortInstanceName;
-// QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-            sData.lastActivity = connrec.binding.service.getLastActivity();
-            if (connrec.binding.service.getHostProcess() != null) {
-                sData.pid = connrec.binding.service.getHostProcess().getPid();
-                sData.serviceB = connrec.binding.service.getHostProcess().isServiceB();
-// QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-            } else {
-                sData.pid = -1;
-                sData.serviceB = false;
-            }
-            if (cData != null) {
-                cData.processName = connrec.binding.client.processName;
-                cData.pid = connrec.binding.client.getPid();
-            }
-            return;
-        }
-
-        sData.packageName = r.packageName;
-        sData.processName = r.shortInstanceName;
-// QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-        sData.lastActivity = r.getLastActivity();
-        if (r.getHostProcess() != null) {
-            sData.pid = r.getHostProcess().getPid();
-            sData.serviceB = r.getHostProcess().isServiceB();
-// QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-        } else {
-            sData.pid = -1;
-            sData.serviceB = false;
-        }
-        if (cData != null) {
-            cData.processName = callerApp.processName;
-            cData.pid = callerApp.getPid();
-        }
-    }
-
 // QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
     int bindServiceLocked(IApplicationThread caller, IBinder token, Intent service,
             String resolvedType, final IServiceConnection connection, long flags,
@@ -4634,19 +4566,9 @@ public final class ActiveServices {
                                 new vendor.qti.hardware.servicetrackeraidl.ClientData();
                         getServiceTrackerAidlData(sData, cData, s, null, callerApp, false);
                         mServicetracker_aidl.bindService(sData, cData);
-                    } else if (getServicetrackerInstance()) {
-                        vendor.qti.hardware.servicetracker.V1_0.ServiceData sData =
-                                new vendor.qti.hardware.servicetracker.V1_0.ServiceData();
-                        vendor.qti.hardware.servicetracker.V1_0.ClientData cData =
-                                new vendor.qti.hardware.servicetracker.V1_0.ClientData();
-                        getServiceTrackerHidlData(sData, cData, s, null, callerApp, false);
-// QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-// QTI_BEGIN: 2022-10-06: Core: Merge changes from topic "am-000f4089-22e1-4b8b-a1ba-7df6718ad762" into t-keystone-qcom-dev
-                        mServicetracker.bindService(sData, cData);
                     }
                 } catch (RemoteException e) {
                     Slog.e(TAG, "Failed to send bind details to servicetracker HAL", e);
-                    mServicetracker = null;
 // QTI_END: 2022-10-06: Core: Merge changes from topic "am-000f4089-22e1-4b8b-a1ba-7df6718ad762" into t-keystone-qcom-dev
 // QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
                     mServicetracker_aidl = null;
@@ -4959,17 +4881,9 @@ public final class ActiveServices {
                                   new vendor.qti.hardware.servicetrackeraidl.ClientData();
                           getServiceTrackerAidlData(sData, cData, null, r, null, true);
                           mServicetracker_aidl.unbindService(sData, cData);
-                      } else if (getServicetrackerInstance()) {
-                          vendor.qti.hardware.servicetracker.V1_0.ServiceData sData =
-                                  new vendor.qti.hardware.servicetracker.V1_0.ServiceData();
-                          vendor.qti.hardware.servicetracker.V1_0.ClientData cData =
-                                  new vendor.qti.hardware.servicetracker.V1_0.ClientData();
-                          getServiceTrackerHidlData(sData, cData, null, r, null, true);
-                          mServicetracker.unbindService(sData, cData);
                       }
                   } catch (RemoteException e) {
                       Slog.e(TAG, "Failed to send unbind details to servicetracker AIDL/HAL", e);
-                      mServicetracker = null;
                       mServicetracker_aidl = null;
                   }
               }
@@ -6888,15 +6802,9 @@ public final class ActiveServices {
                                     new vendor.qti.hardware.servicetrackeraidl.ServiceData();
                             getServiceTrackerAidlData(sData, null, r, null, null, false);
                             mServicetracker_aidl.startService(sData);
-                        } else if (getServicetrackerInstance()) {
-                            vendor.qti.hardware.servicetracker.V1_0.ServiceData sData =
-                                    new vendor.qti.hardware.servicetracker.V1_0.ServiceData();
-                            getServiceTrackerHidlData(sData, null, r, null, null, false);
-                            mServicetracker.startService(sData);
                         }
                     } catch (RemoteException e) {
                         Slog.e(TAG, "Failed to send start details to servicetracker HAL", e);
-                        mServicetracker = null;
                         mServicetracker_aidl = null;
 // QTI_BEGIN: 2022-10-06: Core: Merge changes from topic "am-000f4089-22e1-4b8b-a1ba-7df6718ad762" into t-keystone-qcom-dev
                     }
@@ -7132,17 +7040,9 @@ public final class ActiveServices {
                             new vendor.qti.hardware.servicetrackeraidl.ServiceData();
                     getServiceTrackerAidlData(sData, null, r, null, null, false);
                     mServicetracker_aidl.destroyService(sData);
-                } else if (getServicetrackerInstance()) {
-                    vendor.qti.hardware.servicetracker.V1_0.ServiceData sData =
-                            new vendor.qti.hardware.servicetracker.V1_0.ServiceData();
-                    getServiceTrackerHidlData(sData, null, r, null, null, false);
-// QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-// QTI_BEGIN: 2022-10-06: Core: Merge changes from topic "am-000f4089-22e1-4b8b-a1ba-7df6718ad762" into t-keystone-qcom-dev
-                    mServicetracker.destroyService(sData);
                 }
             } catch (RemoteException e) {
                 Slog.e(TAG, "Failed to send destroy details to servicetracker HAL", e);
-                mServicetracker = null;
 // QTI_END: 2022-10-06: Core: Merge changes from topic "am-000f4089-22e1-4b8b-a1ba-7df6718ad762" into t-keystone-qcom-dev
 // QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
                 mServicetracker_aidl = null;
@@ -8214,9 +8114,6 @@ public final class ActiveServices {
 // QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
             if (!isLowRamDevice && getAIDLServicetrackerInstance()) {
                 mServicetracker_aidl.killProcess(app.getPid());
-            } else if (!isLowRamDevice && getServicetrackerInstance()) {
-// QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-                mServicetracker.killProcess(app.getPid());
 // QTI_BEGIN: 2019-06-24: Core: Inform Servicetracker HAL about Service Lifecycle events
             }
         } catch (RemoteException e) {
@@ -8224,9 +8121,6 @@ public final class ActiveServices {
 // QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
             Slog.e(TAG, "Failed to send kill process details to servicetracker AIDL/HAL", e);
 // QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
-// QTI_BEGIN: 2019-06-24: Core: Inform Servicetracker HAL about Service Lifecycle events
-            mServicetracker = null;
-// QTI_END: 2019-06-24: Core: Inform Servicetracker HAL about Service Lifecycle events
 // QTI_BEGIN: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
             mServicetracker_aidl = null;
 // QTI_END: 2023-04-06: Core: Add servicetracker AIDl support for service lifecycle event
