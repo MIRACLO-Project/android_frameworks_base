@@ -35,6 +35,7 @@ public class LazyJniRegistrarTest {
     @Test
     public void testNativeMethodsResolve() throws Exception {
         // Basic test with a few explicit invocations to make sure methods resolve and don't throw.
+        LazyJniRegistrar.registerConsumerIrService();
         LazyJniRegistrar.registerGameManagerService();
     }
 
