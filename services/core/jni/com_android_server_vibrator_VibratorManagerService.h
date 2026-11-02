@@ -29,6 +29,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "core_jni_helpers.h"
@@ -170,7 +171,29 @@ private:
     virtual std::shared_ptr<I> loadHal() = 0;
 };
 
-// Provides default service declared on the device, using link-to-death to reload dead objects.
+// Returns the name of the HAL service to use for interface I: "default" when the device declares
+// it, otherwise the only instance the device declares (some vendors register their single
+// vibrator under an instance name of their own). Empty when there is no such service.
+template <typename I>
+std::string declaredServiceName() {
+    auto defaultName = std::string(I::descriptor) + "/default";
+    if (AServiceManager_isDeclared(defaultName.c_str())) {
+        return defaultName;
+    }
+    std::vector<std::string> instances;
+    AServiceManager_forEachDeclaredInstance(I::descriptor, &instances,
+                                            [](const char* instance, void* context) {
+                                                static_cast<std::vector<std::string>*>(context)
+                                                        ->push_back(instance);
+                                            });
+    if (instances.size() == 1) {
+        return std::string(I::descriptor) + "/" + instances[0];
+    }
+    return "";
+}
+
+// Provides the service declared on the device (see declaredServiceName), using link-to-death
+// to reload dead objects.
 template <typename I>
 class DefaultProvider : public HalProvider<I> {
 public:
@@ -179,7 +202,10 @@ public:
 
 private:
     std::shared_ptr<I> loadHal() override {
-        auto halName = std::string(I::descriptor) + "/default";
+        auto halName = declaredServiceName<I>();
+        if (halName.empty()) {
+            return nullptr;
+        }
         auto hal = I::fromBinder(ndk::SpAIBinder(AServiceManager_checkService(halName.c_str())));
         if (hal == nullptr) {
             ALOGE("%s: Error connecting to %s", halName.c_str(), __func__);
@@ -188,10 +214,10 @@ private:
     }
 };
 
-// Returns a new provider for the default HAL service declared on the device, null if not declared.
+// Returns a new provider for the HAL service declared on the device, null if none is declared.
 template <typename I>
 std::unique_ptr<HalProvider<I>> defaultProviderForDeclaredService() {
-    if (AServiceManager_isDeclared((std::string(I::descriptor) + "/default").c_str())) {
+    if (!declaredServiceName<I>().empty()) {
         return std::make_unique<DefaultProvider<I>>();
     }
     return nullptr;
