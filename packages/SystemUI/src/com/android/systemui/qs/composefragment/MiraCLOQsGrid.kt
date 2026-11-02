@@ -151,27 +151,25 @@ internal object MiraCLOQsLayouts {
     /** The starting layout of each look, before any editing. */
     fun defaults(look: Int): List<MiraCLOControl> =
         when (look) {
+            // iOS 27 Control Center: connectivity and music blocks, ringer and rotation lock
+            // beside the tall sliders, a Focus pill, a row of toggles, then 2x1 pills.
             MiraCLOLook.IOS ->
                 listOf(
                     c(MiraCLOControl.KIND_CONNECTIVITY, 2, 2),
                     c(MiraCLOControl.KIND_MUSIC, 2, 2),
+                    c(MiraCLOControl.KIND_RINGER, 1, 1),
                     t("rotation"),
-                    t("dnd"),
                     c(MiraCLOControl.KIND_BRIGHTNESS, 1, 2),
                     c(MiraCLOControl.KIND_VOLUME, 1, 2),
-                    t("flashlight"),
+                    t("dnd", 2),
                     t("screenrecord"),
-                )
-            MiraCLOLook.NOTHING ->
-                listOf(
-                    t("internet", 2),
-                    t("bt", 2),
-                    c(MiraCLOControl.KIND_BRIGHTNESS, 4, 1),
-                    t("cell"),
                     t("flashlight"),
-                    t("dnd"),
-                    t("rotation"),
-                    c(MiraCLOControl.KIND_MUSIC, 4, 2),
+                    t("dark"),
+                    t("battery"),
+                    t("hotspot", 2),
+                    t("location", 2),
+                    t("alarm", 2),
+                    t("cast", 2),
                 )
             MiraCLOLook.ONEUI ->
                 listOf(
@@ -184,15 +182,14 @@ internal object MiraCLOQsLayouts {
                     c(MiraCLOControl.KIND_BRIGHTNESS, 4, 1),
                     c(MiraCLOControl.KIND_MUSIC, 4, 2),
                 )
-            // ColorOS: the classic layout, as a grid.
+            // ColorOS 17: the classic layout, as a grid.
             else ->
                 listOf(
                     t("internet", 2),
-                    t("cell", 2),
+                    t("bt", 2),
                     c(MiraCLOControl.KIND_MUSIC, 2, 2),
                     c(MiraCLOControl.KIND_BRIGHTNESS, 1, 2),
                     c(MiraCLOControl.KIND_VOLUME, 1, 2),
-                    t("bt", 2),
                     c(MiraCLOControl.KIND_RINGER, 2, 1),
                 )
         }
@@ -241,6 +238,8 @@ private val MIRACLO_TILE_ALIASES =
         listOf("bt", "bluetooth"),
         listOf("screenrecord", "record"),
         listOf("dnd", "modes"),
+        listOf("dark", "dark_mode", "night"),
+        listOf("battery", "battery_saver"),
     )
 
 private fun aliasesOf(spec: String): List<String> =
@@ -251,13 +250,23 @@ private fun List<TileViewModel>.findTile(spec: String): TileViewModel? =
     aliasesOf(spec).firstNotNullOfOrNull { s -> firstOrNull { it.spec.spec == s } }
 
 /** The four tiles of the connectivity block. */
-private fun connectivityTiles(tiles: List<TileViewModel>): List<TileViewModel> =
+internal fun connectivityTiles(tiles: List<TileViewModel>): List<TileViewModel> =
     listOfNotNull(
         tiles.findTile("internet"),
         tiles.findTile("cell"),
         tiles.findTile("bt"),
         tiles.findTile("airplane") ?: tiles.findTile("hotspot"),
     )
+
+/** Everything on the iOS Connectivity page: the block's toggles, then the other radios. */
+internal fun connectivityPageTiles(tiles: List<TileViewModel>): List<TileViewModel> {
+    val first = connectivityTiles(tiles)
+    val more =
+        listOf("airplane", "hotspot", "vpn", "nfc", "cast", "location").mapNotNull {
+            tiles.findTile(it)
+        }
+    return (first + more).distinctBy { it.spec.spec }
+}
 
 /**
  * The controls to show: the layout's controls whose tiles exist, then every other tile the
@@ -400,7 +409,6 @@ internal class MiraCLOQsEditor {
 private fun miracloCardShape(look: Int): Shape =
     when (look) {
         MiraCLOLook.ONEUI -> RoundedCornerShape(26.dp)
-        MiraCLOLook.NOTHING -> RoundedCornerShape(28.dp)
         else -> MiraCLOMediaShape
     }
 
@@ -429,7 +437,8 @@ internal fun ContentScope.MiraCLOQsGrid(
     val cells = remember(items) { miracloPack(items) }
     val geometry = remember { MiraCLOGeometry() }
     val glass = miracloGlass()
-    val gap = MiraCLOColorOSGap
+    // iOS 27: 65dp cells, 15dp apart; the other looks use the ColorOS spacing.
+    val gap = if (look == MiraCLOLook.IOS) 15.dp else MiraCLOColorOSGap
     val tileHeight = CommonTileDefaults.TileHeight
     // Round tiles carry their label underneath, except in the iOS look.
     val labelHeight = if (look == MiraCLOLook.IOS) 0.dp else 36.dp
@@ -461,7 +470,7 @@ internal fun ContentScope.MiraCLOQsGrid(
     val currentItems by rememberUpdatedState(items)
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = spacedBy(gap)) {
-        if (editor.editing) MiraCLOEditBar(editor, onSave, onReset)
+        if (editor.editing) MiraCLOEditBar(look, editor, onSave, onReset)
 
         Layout(
             modifier = Modifier.fillMaxWidth(),
@@ -571,7 +580,7 @@ internal fun ContentScope.MiraCLOQsGrid(
             val width = constraints.maxWidth
             val gapPx = gap.roundToPx()
             val cell = ((width - gapPx * (MIRACLO_COLUMNS - 1)) / MIRACLO_COLUMNS).coerceAtLeast(1)
-            val base = tileHeight.roundToPx()
+            val base = if (look == MiraCLOLook.IOS) cell else tileHeight.roundToPx()
             val label = labelHeight.roundToPx()
             val rowCount = cells.maxOfOrNull { it.row + it.h } ?: 0
             // A row grows by the label height when it holds a round tile with a label.
@@ -604,20 +613,24 @@ internal fun ContentScope.MiraCLOQsGrid(
             layout(width, total) { placeables.forEach { (p, pos) -> p.place(pos) } }
         }
 
-        if (editor.editing && editor.adding) {
+        // ColorOS keeps the list of controls to add open under the panel; iOS opens it from the
+        // "Add a Control" button at the bottom.
+        if (editor.editing && (look == MiraCLOLook.COLOROS || editor.adding)) {
             MiraCLOAddList(controls = items, hidden = editor.hidden, tiles = tiles, editor = editor)
         }
-        if (!editor.editing) {
+        if (editor.editing && look == MiraCLOLook.IOS) {
             Text(
-                text = "Edit controls",
-                color = glass.secondaryText,
-                style = MaterialTheme.typography.labelLarge,
+                text = if (editor.adding) "Close" else "Add a Control",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 modifier =
                     Modifier.align(Alignment.CenterHorizontally)
-                        .clip(RoundedCornerShape(50))
-                        .clickable { editor.start(controls, hidden) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(top = 8.dp)
+                        .glassSurface(glass, RoundedCornerShape(22.dp))
+                        .clickable { editor.adding = !editor.adding }
+                        .padding(horizontal = 28.dp, vertical = 12.dp),
             )
         }
     }
@@ -648,50 +661,61 @@ private fun MiraCLOEditBadge(
 
 @Composable
 private fun MiraCLOPill(text: String, strong: Boolean, onClick: () -> Unit) {
-    val dark = miracloGlass().dark
+    val glass = miracloGlass()
+    val shape = RoundedCornerShape(19.dp)
     Text(
         text = text,
         color = if (strong) Color.White else MaterialTheme.colorScheme.onSurface,
-        style = MaterialTheme.typography.labelLarge,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
         modifier =
-            Modifier.clip(RoundedCornerShape(50))
-                .background(
-                    when {
-                        strong -> Color(0xFF0A84FF)
-                        dark -> Color.White.copy(alpha = 0.14f)
-                        else -> Color.Black.copy(alpha = 0.08f)
-                    }
+            Modifier.then(
+                    if (strong) Modifier.clip(shape).background(Color(0xFF1A7CFF))
+                    else Modifier.glassSurface(glass, shape)
                 )
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 9.dp),
+                .padding(horizontal = if (strong) 18.dp else 16.dp, vertical = 9.dp),
     )
 }
 
+/** Reset on the left, the title in the middle and Done on the right, with a hint underneath. */
 @Composable
 private fun MiraCLOEditBar(
+    look: Int,
     editor: MiraCLOQsEditor,
     onSave: (List<MiraCLOControl>, Set<String>) -> Unit,
     onReset: () -> Unit,
 ) {
-    Column(verticalArrangement = spacedBy(8.dp)) {
-        Row(horizontalArrangement = spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            MiraCLOPill(if (editor.adding) "Close" else "Add a control", strong = false) {
-                editor.adding = !editor.adding
-            }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = spacedBy(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             MiraCLOPill("Reset", strong = false) {
                 editor.editing = false
                 onReset()
             }
-            Box(Modifier.weight(1f))
+            Text(
+                text = "Edit",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
             MiraCLOPill("Done", strong = true) {
                 onSave(editor.items, editor.hidden)
                 editor.editing = false
             }
         }
         Text(
-            text = "Touch and hold to move · ↔ to resize · − to remove",
+            text =
+                if (look == MiraCLOLook.IOS) "Touch and hold to move · − to remove"
+                else "Touch and hold to move · ↔ to resize",
             color = miracloGlass().secondaryText,
-            style = MaterialTheme.typography.bodySmall,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -714,11 +738,15 @@ private fun MiraCLOAddList(
                 .padding(16.dp),
         verticalArrangement = spacedBy(10.dp),
     ) {
-        Text("Add a control", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Tap to add",
+            color = glass.secondaryText,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
         if (widgets.isEmpty() && removed.isEmpty()) {
             Text(
-                "Everything is already on the panel. New tiles can be added with the pencil " +
-                    "button below.",
+                "Everything is already on the panel.",
                 color = glass.secondaryText,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -776,7 +804,8 @@ private fun ContentScope.MiraCLOControlContent(
                 modifier =
                     Modifier.fillMaxSize()
                         .then(
-                            if (showMedia) Modifier.clip(shape) else Modifier.glassSurface(glass, shape)
+                            // The media card clips itself, leaving room for its glow.
+                            if (showMedia) Modifier else Modifier.glassSurface(glass, shape)
                         )
                         .miracloCornerGlow(glass.liquid && LocalMiraCLOGlow.current),
                 contentAlignment = Alignment.Center,
@@ -846,10 +875,19 @@ private fun ContentScope.MiraCLOConnectivity(
     listening: () -> Boolean,
     tileHeight: androidx.compose.ui.unit.Dp,
 ) {
+    val ios = LocalMiraCLOIosState.current
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize().glassSurface(glass, miracloCardShape(look)),
+        modifier =
+            Modifier.fillMaxSize()
+                .glassSurface(glass, miracloCardShape(look))
+                .then(
+                    if (ios != null) Modifier.miracloEarlyLongPress { ios.expanded = true }
+                    else Modifier
+                ),
         contentAlignment = Alignment.Center,
     ) {
+        // The grown module draws the toggles while it is open.
+        if (ios?.expanded == true) return@BoxWithConstraints
         val columns = if (wide) 4 else 2
         val rows = if (wide) 1 else 2
         val slot = minOf(maxWidth / columns, maxHeight / rows)
@@ -892,7 +930,7 @@ private fun ContentScope.MiraCLOConnectivity(
 
 /** The ringer switch at 1x1: one round button that steps ring, vibrate, silent. */
 @Composable
-private fun MiraCLORingerButton(
+internal fun MiraCLORingerButton(
     audioVolumeInteractor: AudioVolumeInteractor,
     glass: MiraCLOGlass,
     height: androidx.compose.ui.unit.Dp,

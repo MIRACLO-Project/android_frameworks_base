@@ -124,8 +124,8 @@ constructor(
             } catch (_: Exception) {
                 0
             }
-        qsStyle = style != 0
-        look = if (style in MiraCLOLook.COLOROS..MiraCLOLook.ONEUI) style else MiraCLOLook.COLOROS
+        look = if (style == MiraCLOLook.IOS || style == MiraCLOLook.ONEUI) style else MiraCLOLook.COLOROS
+        qsStyle = style == MiraCLOLook.COLOROS || style == MiraCLOLook.IOS || style == MiraCLOLook.ONEUI
         layouts =
             LOOKS.associateWith { l ->
                 try {
@@ -189,8 +189,6 @@ constructor(
             liquidGlass -> Color.Transparent
             look == MiraCLOLook.IOS ->
                 if (dark) Color.Black.copy(alpha = 0.38f) else Color.White.copy(alpha = 0.28f)
-            look == MiraCLOLook.NOTHING ->
-                if (dark) Color.Black.copy(alpha = 0.92f) else Color(0xEBF4F4F4)
             look == MiraCLOLook.ONEUI ->
                 if (dark) Color(0xC7101012) else Color(0xC7F2F2F5)
             dark -> Color(0xFF0B0C0F)
@@ -326,6 +324,6 @@ constructor(
         const val KEY_LIQUID_GLASS_QS = "miraclo_lg_qs"
 
         private val LOOKS =
-            listOf(MiraCLOLook.COLOROS, MiraCLOLook.IOS, MiraCLOLook.NOTHING, MiraCLOLook.ONEUI)
+            listOf(MiraCLOLook.COLOROS, MiraCLOLook.IOS, MiraCLOLook.ONEUI)
     }
 }

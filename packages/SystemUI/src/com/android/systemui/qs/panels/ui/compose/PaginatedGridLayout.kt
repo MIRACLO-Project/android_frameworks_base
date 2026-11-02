@@ -16,17 +16,23 @@
 
 package com.android.systemui.qs.panels.ui.compose
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Arrangement.spacedBy
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.integerResource
@@ -188,6 +195,30 @@ private fun FooterBar(
         rememberViewModel(traceName = "PaginatedGridLayout-editButtonViewModel") {
             editButtonViewModelFactory.create()
         }
+
+    // MiraCLO: the looks only keep the page dots (6dp, 8dp apart); their header has the edit
+    // button, and the build number is not part of the design.
+    if (LocalMiraCLOQsStyle.current) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            if (pagerState.pageCount > 1) {
+                val fg = MaterialTheme.colorScheme.onSurface
+                repeat(pagerState.pageCount) { i ->
+                    Box(
+                        Modifier.padding(horizontal = 4.dp)
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (i == pagerState.currentPage) fg else fg.copy(alpha = 0.32f)
+                            )
+                    )
+                }
+            }
+        }
+        return
+    }
 
     // Use requiredHeight so it won't be squished if the view doesn't quite fit. As this is
     // expected to be inside a scrollable container, this should not be an issue.

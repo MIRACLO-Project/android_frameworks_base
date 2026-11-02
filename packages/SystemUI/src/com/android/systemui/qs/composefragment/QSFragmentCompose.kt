@@ -16,6 +16,8 @@
 
 package com.android.systemui.qs.composefragment
 
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import com.android.systemui.miraclo.LocalMiraCLOGlow
 import com.android.systemui.miraclo.miracloTouchGlow
 import androidx.compose.ui.input.pointer.pointerInput
@@ -169,6 +171,8 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLiquidGlass
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLook
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOQsStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLORoundTiles
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOTileSize
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOLook
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
@@ -239,6 +243,25 @@ constructor(
     private var miracloLiquidGlass by mutableStateOf(false)
     private var miracloRefraction by mutableStateOf(false)
     private var miracloGlow by mutableStateOf(false)
+    // MiraCLO: stock Quick Settings options from Mira Studio.
+    private var miracloRoundTiles by mutableStateOf(false)
+    private var miracloTileSize by mutableIntStateOf(0)
+    private var miracloLayoutStore: MiraCLOLayoutStore? = null
+    private val miracloEditor = MiraCLOQsEditor()
+
+    /** MiraCLO: top of the QS scroll column on screen, taken when QS is fully open. */
+    private var miracloColumnTop by mutableFloatStateOf(-1f)
+
+    /** MiraCLO: how much the 390dp-wide mocks are scaled to fit this screen. */
+    @Composable
+    private fun miracloScale(): Float = LocalConfiguration.current.screenWidthDp / 390f
+
+    /** MiraCLO: the iOS look's page and grown connectivity module. */
+    private val miracloIos = MiraCLOIosState()
+
+    /** MiraCLO: whether the iOS pages take vertical swipes instead of the shade. */
+    private fun miracloIosPages(): Boolean =
+        miracloQsStyle && miracloLook == MiraCLOLook.IOS && !miracloEditor.editing
 
     /** MiraCLO: media sessions for the ColorOS-style QS media card. */
     private val miracloMediaSessions = MiraCLOMediaSessions()
@@ -249,6 +272,8 @@ constructor(
      */
     private fun miracloNoVerticalScroll(): Boolean =
         miracloQsStyle &&
+            miracloLook == MiraCLOLook.COLOROS &&
+            !miracloEditor.editing &&
             context?.resources?.configuration?.orientation != Configuration.ORIENTATION_LANDSCAPE
 
     /** MiraCLO: Settings.Secure keys this fragment follows live. */
@@ -259,6 +284,8 @@ constructor(
             MIRACLO_LIQUID_GLASS_QS,
             MiraCLORefraction.KEY,
             MiraCLORefraction.KEY_GLOW,
+            MIRACLO_QS_ROUND_TILES,
+            MIRACLO_QS_TILE_SIZE,
         )
 
     /** MiraCLO: re-reads the MiraCLO settings whenever one of them changes. */
@@ -294,6 +321,9 @@ constructor(
         }
         userTracker.addCallback(miracloUserCallback) { mainHandler.post(it) }
         readMiraCLOSettings()
+        context?.let { ctx ->
+            (miracloLayoutStore ?: MiraCLOLayoutStore(ctx).also { miracloLayoutStore = it }).watch()
+        }
     }
 
     override fun onStop() {
@@ -307,9 +337,16 @@ constructor(
         val resolver = context?.contentResolver ?: return
         val userId = userTracker.userId
         val style = Settings.Secure.getIntForUser(resolver, MIRACLO_QS_STYLE, 0, userId)
-        miracloQsStyle = style != 0
-        miracloLook =
-            if (style in MiraCLOLook.COLOROS..MiraCLOLook.ONEUI) style else MiraCLOLook.COLOROS
+        // 0 = stock; 1 ColorOS, 2 iOS, 4 One UI. Anything else (the old Nothing look) is stock.
+        miracloQsStyle =
+            style == MiraCLOLook.COLOROS || style == MiraCLOLook.IOS || style == MiraCLOLook.ONEUI
+        miracloLook = if (miracloQsStyle) style else MiraCLOLook.COLOROS
+        miracloRoundTiles =
+            Settings.Secure.getIntForUser(resolver, MIRACLO_QS_ROUND_TILES, 0, userId) != 0
+        miracloTileSize =
+            Settings.Secure.getIntForUser(resolver, MIRACLO_QS_TILE_SIZE, 0, userId)
+                .let { if (it in 48..96) it else 0 }
+        miracloLayoutStore?.refresh()
         miracloLiquidGlass =
             Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS, 0, userId) != 0 &&
                 Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS_QS, 1, userId) != 0
@@ -362,12 +399,21 @@ constructor(
                     // MiraCLO: the ColorOS layout pages sideways and never scrolls vertically,
                     // so a swipe up always reaches the shade and collapses QS.
                     if (miracloNoVerticalScroll()) return isCustomizing
+                    // MiraCLO: a swipe up moves down the iOS pages; on the last page it collapses.
+                    if (miracloIosPages() && viewModel.isQsFullyExpanded &&
+                        miracloIos.page < MiraCLOIosState.PAGES - 1
+                    ) {
+                        return true
+                    }
                     return (scrollState.canScrollForward && viewModel.isQsFullyExpanded) ||
                         isCustomizing
                 }
 
                 override fun backward(): Boolean {
                     if (miracloNoVerticalScroll()) return isCustomizing
+                    if (miracloIosPages() && viewModel.isQsFullyExpanded && miracloIos.page > 0) {
+                        return true
+                    }
                     return (scrollState.canScrollBackward && viewModel.isQsFullyExpanded) ||
                         isCustomizing
                 }
@@ -404,22 +450,33 @@ constructor(
                 else if (notificationShadeBlur()) isSystemInDarkTheme()
                 else true
         ) {
+            // MiraCLO: refraction belongs to the iOS glass only, and only on a dark panel; the
+            // other looks draw their own frost, edge and glow behind the content.
+            val miracloDarkPanel = MaterialTheme.colorScheme.surface.luminance() < 0.5f
             // MiraCLO: lets the tiles know which Quick Settings style and look are on.
             CompositionLocalProvider(
                 LocalMiraCLOQsStyle provides miracloQsStyle,
                 LocalMiraCLOLook provides miracloLook,
                 LocalMiraCLOLiquidGlass provides miracloLiquidGlass,
-                LocalMiraCLORefraction provides miracloRefraction,
+                LocalMiraCLORefraction provides
+                    (miracloRefraction && miracloLook == MiraCLOLook.IOS && miracloDarkPanel),
                 LocalMiraCLOGlassAlpha provides {
                     miracloSplitFade(viewModel.expansionState.progress)
                 },
                 LocalMiraCLOGlow provides miracloGlow,
+                LocalMiraCLORoundTiles provides (!miracloQsStyle && miracloRoundTiles),
+                LocalMiraCLOTileSize provides
+                    (if (!miracloQsStyle && miracloTileSize > 0) miracloTileSize.dp else null),
             ) {
-                // MiraCLO: without Liquid Glass the dark ColorOS QS is solid, with no blur: an
-                // opaque shade fades in behind it as QS expands (QQS and notifications untouched).
-                val miracloSolid =
-                    miracloQsStyle && !miracloLiquidGlass &&
-                        MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                // MiraCLO: each look lays its own tint over the shade blur as QS expands: clear
+                // glass for iOS, a dark frost for ColorOS, the wallpaper tint for One UI, and an
+                // opaque panel when Liquid Glass is off (QQS and notifications untouched).
+                val miracloTint =
+                    if (miracloQsStyle) {
+                        miracloPanelTint(miracloLook, miracloLiquidGlass, miracloDarkPanel)
+                    } else {
+                        null
+                    }
                 // MiraCLO split shade: a pull from the notifications side hides Quick Settings;
                 // a pull from its own side fades it back in.
                 val miracloQsAlpha by
@@ -451,10 +508,11 @@ constructor(
                                         }
                                     }
                                 }
-                                .thenIf(miracloSolid) {
+                                .thenIf(miracloTint != null) {
                                     Modifier.drawBehind {
                                         val p = viewModel.expansionState.progress.coerceIn(0f, 1f)
-                                        if (p > 0f) drawRect(MiraCLOSolidShade, alpha = p)
+                                        val tint = miracloTint
+                                        if (p > 0f && tint != null) drawRect(tint, alpha = p)
                                     }
                                 }
                                 .layout { measurable, constraints ->
@@ -550,6 +608,8 @@ constructor(
                     .collect {
                         if (!it) {
                             viewModel.containerViewModel.editModeViewModel.stopEditing()
+                            miracloEditor.editing = false
+                            miracloIos.reset()
                         }
                     }
             }
@@ -558,6 +618,8 @@ constructor(
                     .collect {
                         if (!it && viewModel.isEditing) {
                             viewModel.containerViewModel.editModeViewModel.stopEditing()
+                            miracloEditor.editing = false
+                            miracloIos.reset()
                         }
                     }
             }
@@ -658,11 +720,13 @@ constructor(
     }
 
     override fun isCustomizing(): Boolean {
-        return viewModel.isEditing
+        // MiraCLO: our own editor counts as customizing, so Back and the shade close it.
+        return viewModel.isEditing || miracloEditor.editing
     }
 
     override fun closeCustomizer() {
         viewModel.containerViewModel.editModeViewModel.stopEditing()
+        miracloEditor.editing = false
     }
 
     override fun setOverscrolling(overscrolling: Boolean) {
@@ -996,6 +1060,7 @@ constructor(
                                     val left = positionOnScreen.x
                                     val right = left + coordinates.size.width
                                     val top = positionOnScreen.y
+                                    if (viewModel.isQsFullyExpanded) miracloColumnTop = top
                                     val bottom = top + coordinates.size.height
                                     viewModel.applyNewQsScrollerBounds(
                                         left = left,
@@ -1024,8 +1089,21 @@ constructor(
                                 .sysuiResTag(ResIdTags.qsScroll)
                     ) {
                         val containerViewModel = viewModel.containerViewModel
+                        // MiraCLO: the looks put their header where the mocks do, measured from the
+                        // top of the screen; the stock header steps aside for them.
+                        val miracloTopPx =
+                            with(LocalDensity.current) {
+                                (miracloHeaderTop(miracloLook).dp * miracloScale()).toPx()
+                            }
                         Spacer(
-                            modifier = Modifier.height { qqsPadding + qsExtraPadding.roundToPx() }
+                            modifier =
+                                Modifier.height {
+                                    if (miracloQsStyle && miracloColumnTop >= 0f) {
+                                        (miracloTopPx - miracloColumnTop).toInt().coerceAtLeast(0)
+                                    } else {
+                                        qqsPadding + qsExtraPadding.roundToPx()
+                                    }
+                                }
                         )
                         val BrightnessSlider =
                             @Composable {
@@ -1105,17 +1183,68 @@ constructor(
                             modifier =
                                 Modifier.fillMaxWidth()
                                     .sysuiResTag(ResIdTags.quickSettingsPanel)
-                                    .padding(
-                                        top = QuickSettingsShade.Dimensions.VerticalPadding,
-                                        start = qsHorizontalMargin(),
-                                        end = qsHorizontalMargin(),
+                                    .then(
+                                        if (miracloQsStyle) {
+                                            Modifier
+                                        } else {
+                                            Modifier.padding(
+                                                top = QuickSettingsShade.Dimensions.VerticalPadding,
+                                                start = qsHorizontalMargin(),
+                                                end = qsHorizontalMargin(),
+                                            )
+                                        }
                                     )
                         ) {
                             if (miracloQsStyle) {
-                                Box {
+                                // MiraCLO: the looks are drawn at the size of the 390dp-wide
+                                // mocks and scaled to this screen, so every proportion matches.
+                                val density = LocalDensity.current
+                                val scale = miracloScale()
+                                val scaled =
+                                    remember(density, scale) {
+                                        Density(density.density * scale, density.fontScale)
+                                    }
+                                CompositionLocalProvider(LocalDensity provides scaled) {
+                                Column {
                                     GridAnchor()
-                                    MiraCLOQuickSettingsLayout(
-                                        tiles = containerViewModel.tileGridViewModel.tileViewModels,
+                                    val miracloStore =
+                                        miracloLayoutStore
+                                            ?: MiraCLOLayoutStore(LocalContext.current).also {
+                                                miracloLayoutStore = it
+                                                it.watch()
+                                            }
+                                    val miracloTiles =
+                                        containerViewModel.tileGridViewModel.tileViewModels
+                                    if (!miracloEditor.editing) {
+                                        MiraCLOStyleHeader(
+                                            look = miracloLook,
+                                            onEdit = {
+                                                if (miracloLook == MiraCLOLook.ONEUI) {
+                                                    containerViewModel.editModeViewModel
+                                                        .startEditing()
+                                                } else {
+                                                    miracloStartEdit(
+                                                        miracloLook,
+                                                        miracloStore,
+                                                        miracloEditor,
+                                                        miracloTiles,
+                                                    )
+                                                }
+                                            },
+                                            onPower =
+                                                viewModel.footerActionsViewModel.power?.onClick,
+                                            onOpen = { intent ->
+                                                activityStarter
+                                                    .postStartActivityDismissingKeyguard(intent, 0)
+                                            },
+                                        )
+                                    }
+                                    MiraCLOLookBody(
+                                        look = miracloLook,
+                                        store = miracloStore,
+                                        editor = miracloEditor,
+                                        ios = miracloIos,
+                                        allTiles = miracloTiles,
                                         gridLayout = containerViewModel.tileGridViewModel.gridLayout,
                                         infiniteGridLayout = infiniteGridLayout,
                                         brightnessViewModel =
@@ -1166,10 +1295,19 @@ constructor(
                                             }
                                         },
                                         listening = isListening,
-                                        // ColorOS 17 uses ~38dp side margins; the stock QS
-                                        // margin already gives ~16dp, so add the rest.
-                                        modifier = Modifier.padding(horizontal = 22.dp),
+                                        onOpen = { intent ->
+                                            activityStarter.postStartActivityDismissingKeyguard(
+                                                intent,
+                                                0,
+                                            )
+                                        },
+                                        modifier =
+                                            Modifier.padding(
+                                                start = miracloSideMargin(miracloLook).dp,
+                                                end = miracloSideMargin(miracloLook).dp,
+                                            ),
                                     )
+                                }
                                 }
                             } else {
                                 QuickSettingsLayout(
@@ -1187,12 +1325,15 @@ constructor(
                         }
                     }
                 }
-                QuickSettingsTheme {
-                    Element(
-                        Elements.FooterActions,
-                        Modifier.sysuiResTag(ResIdTags.qsFooterActions),
-                    ) {
-                        FooterActions(viewModel = viewModel.footerActionsViewModel)
+                // MiraCLO: the MiraCLO looks carry their buttons in their own header.
+                if (!miracloQsStyle) {
+                    QuickSettingsTheme {
+                        Element(
+                            Elements.FooterActions,
+                            Modifier.sysuiResTag(ResIdTags.qsFooterActions),
+                        ) {
+                            FooterActions(viewModel = viewModel.footerActionsViewModel)
+                        }
                     }
                 }
             }
@@ -1790,11 +1931,12 @@ private fun miracloSplitFade(progress: Float): Float =
     else ((progress - 0.15f) / 0.6f).coerceIn(0f, 1f)
 
 /** MiraCLO: the solid dark shade behind the ColorOS QS when Liquid Glass is off. */
-private val MiraCLOSolidShade = Color(0xFF0B0C0F)
 
 /** MiraCLO: Settings.Secure key for the ColorOS-style Quick Settings layout (0 = off, 1 = on). */
 private const val MIRACLO_QS_STYLE = "miraclo_qs_style"
 
 /** MiraCLO: Settings.Secure key for Liquid Glass (Settings > Display), 0 = off, 1 = on. */
+private const val MIRACLO_QS_ROUND_TILES = "miraclo_qs_round_tiles"
+private const val MIRACLO_QS_TILE_SIZE = "miraclo_qs_tile_size"
 private const val MIRACLO_LIQUID_GLASS = "miraclo_liquid_glass"
 private const val MIRACLO_LIQUID_GLASS_QS = "miraclo_lg_qs"

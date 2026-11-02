@@ -475,7 +475,7 @@ object CommonTileDefaults {
         get() = dimensionResource(id = R.dimen.common_tile_default_start_padding)
 
     /** MiraCLO: ColorOS style sizes, measured from ColorOS 17. Default style is unchanged. */
-    val MiraCLOColorOSTileHeight = 66.dp
+    val MiraCLOColorOSTileHeight = 64.dp
     val MiraCLOColorOSToggleTargetSize = 46.dp
 
     val TileHeight: Dp
@@ -483,14 +483,21 @@ object CommonTileDefaults {
         @ReadOnlyComposable
         get() =
             if (LocalMiraCLOQsStyle.current) MiraCLOColorOSTileHeight
-            else dimensionResource(id = R.dimen.common_tile_default_tile_height)
+            else
+                LocalMiraCLOTileSize.current
+                    ?: dimensionResource(id = R.dimen.common_tile_default_tile_height)
 
     val ToggleTargetSize: Dp
         @Composable
         @ReadOnlyComposable
         get() =
             if (LocalMiraCLOQsStyle.current) MiraCLOColorOSToggleTargetSize
-            else dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
+            else
+                LocalMiraCLOTileSize.current?.let { size ->
+                    // MiraCLO: the icon bubble keeps its stock proportion to the tile.
+                    dimensionResource(id = R.dimen.common_tile_default_toggle_target_size) *
+                        (size / dimensionResource(id = R.dimen.common_tile_default_tile_height))
+                } ?: dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
 
     val SideIconWidth = 32.dp
     val SideIconHeight = 20.dp

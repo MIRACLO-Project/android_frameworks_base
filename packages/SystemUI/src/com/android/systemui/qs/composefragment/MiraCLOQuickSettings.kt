@@ -9,7 +9,13 @@ import com.android.systemui.miraclo.LocalMiraCLOGlow
 import com.android.systemui.miraclo.miracloCornerGlow
 import com.android.systemui.miraclo.LocalMiraCLORefraction
 import com.android.systemui.miraclo.miracloRefraction
+import android.content.Intent
 import android.media.AudioManager
+import android.provider.Settings
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,16 +53,21 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.animation.scene.ContentScope
 import com.android.settingslib.volume.domain.interactor.AudioVolumeInteractor
@@ -69,6 +80,8 @@ import com.android.systemui.qs.panels.ui.compose.TileListener
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.CommonTileDefaults
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.InfiniteGridLayout
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLiquidGlass
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLook
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOLook
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOLiquidHighlight
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOLiquidRim
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOSolidTile
@@ -79,7 +92,6 @@ import kotlinx.coroutines.launch
 
 /** Tile specs that MiraCLO pins to the fixed wide slots, in order of preference. */
 private val MIRACLO_WIFI_SPECS = listOf("internet", "wifi")
-private val MIRACLO_DATA_SPECS = listOf("cell", "mobile_data", "mobiledata")
 private val MIRACLO_BT_SPECS = listOf("bt", "bluetooth")
 
 private val MiraCLOGap = MiraCLOColorOSGap
@@ -94,12 +106,12 @@ private const val MIRACLO_FULL_THRESHOLD = 0.995f
 internal val MiraCLOMediaShape = RoundedCornerShape(32.dp)
 
 /**
- * MiraCLO (ColorOS-style) expanded Quick Settings.
+ * MiraCLO (ColorOS 17 style) expanded Quick Settings.
  *
  * ```
- * [ Wi-Fi         ][ Mobile data   ]
+ * [ Wi-Fi         ][ Bluetooth     ]
  * [ Media        ][ ☀ ][ 🔊 ]          tall brightness + media volume sliders
- * [ Bluetooth     ][ 🔔  📳  🔕     ]   ringer switch
+ * [ My devices    ][ 🔔  📳  🔕     ]   Bluetooth devices + ringer switch
  * ( ) ( ) ( ) ( )                       every other tile: round, label below
  * ```
  *
@@ -118,14 +130,14 @@ internal fun ContentScope.MiraCLOQuickSettingsLayout(
     mediaHost: @Composable (Modifier) -> Unit = {},
     listening: () -> Boolean,
     modifier: Modifier = Modifier,
+    onOpen: (Intent) -> Unit = {},
 ) {
     fun pick(specs: List<String>): TileViewModel? =
         specs.firstNotNullOfOrNull { spec -> tiles.firstOrNull { it.spec.spec == spec } }
 
     val wifi = pick(MIRACLO_WIFI_SPECS)
-    val data = pick(MIRACLO_DATA_SPECS)
     val bt = pick(MIRACLO_BT_SPECS)
-    val fixed = listOfNotNull(wifi, data, bt)
+    val fixed = listOfNotNull(wifi, bt)
     val rest = remember(tiles, fixed) { tiles.filterNot { it in fixed } }
 
     // The fixed tiles are not part of a grid, so make them listen ourselves.
@@ -136,15 +148,15 @@ internal fun ContentScope.MiraCLOQuickSettingsLayout(
     val glass = miracloGlass()
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = spacedBy(MiraCLOGap)) {
-        // Row 1: Wi-Fi + mobile data
-        if (wifi != null || data != null) {
+        // Row 1: Wi-Fi + Bluetooth
+        if (wifi != null || bt != null) {
             Row(horizontalArrangement = spacedBy(MiraCLOGap)) {
-                listOfNotNull(wifi, data).forEach { tile ->
+                listOfNotNull(wifi, bt).forEach { tile ->
                     with(infiniteGridLayout) {
                         MiraCLOWideTile(tile, listening, Modifier.weight(1f))
                     }
                 }
-                if (wifi == null || data == null) Box(Modifier.weight(1f))
+                if (wifi == null || bt == null) Box(Modifier.weight(1f))
             }
         }
 
@@ -160,7 +172,7 @@ internal fun ContentScope.MiraCLOQuickSettingsLayout(
                         // While media plays, the player card is the whole slot: no glass behind
                         // it, same corner radius as the card (32dp) so there is a single outline.
                         .then(
-                            if (showMedia) Modifier.clip(MiraCLOMediaShape)
+                            if (showMedia) Modifier
                             else Modifier.glassSurface(glass, MiraCLOMediaShape)
                         )
                         // MiraCLO Liquid Glass glow: a faint light in the card's bottom corner.
@@ -191,13 +203,14 @@ internal fun ContentScope.MiraCLOQuickSettingsLayout(
             )
         }
 
-        // Row 3: Bluetooth + ringer switch
+        // Row 3: My devices (Bluetooth devices) + ringer switch
         Row(horizontalArrangement = spacedBy(MiraCLOGap)) {
-            if (bt != null) {
-                with(infiniteGridLayout) { MiraCLOWideTile(bt, listening, Modifier.weight(1f)) }
-            } else {
-                Box(Modifier.weight(1f))
-            }
+            MiraCLOMyDevices(
+                glass = glass,
+                height = tileHeight,
+                onClick = { onOpen(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
+                modifier = Modifier.weight(1f),
+            )
             MiraCLORingerSwitch(
                 audioVolumeInteractor = audioVolumeInteractor,
                 glass = glass,
@@ -207,15 +220,85 @@ internal fun ContentScope.MiraCLOQuickSettingsLayout(
         }
 
         // Everything else: round icon tiles with labels (the grid handles paging + listening)
+        // ColorOS 17: the round tiles start 22dp under the cards and spread 8dp wider on each
+        // side than the cards above them.
         if (rest.isNotEmpty()) {
             with(gridLayout) {
                 TileGrid(
                     tiles = rest,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier.padding(top = 6.dp).layout { measurable, constraints ->
+                            val extra = 16.dp.roundToPx()
+                            val width = constraints.maxWidth + extra
+                            val placeable =
+                                measurable.measure(
+                                    constraints.copy(minWidth = width, maxWidth = width)
+                                )
+                            layout(constraints.maxWidth, placeable.height) {
+                                placeable.place(-extra / 2, 0)
+                            }
+                        },
                     listening = listening,
                     enableRevealEffect = false,
                 )
             }
+        }
+    }
+}
+
+/**
+ * ColorOS 17 "My devices": a glass pill with an icon bubble that opens the Bluetooth device list.
+ */
+@Composable
+internal fun MiraCLOMyDevices(
+    glass: MiraCLOGlass,
+    height: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(percent = 50)
+    Row(
+        modifier =
+            modifier
+                .height(height)
+                .glassSurface(glass, shape)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = "My Devices" }
+                .padding(horizontal = 8.dp),
+        horizontalArrangement = spacedBy(9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier.size(height - 18.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (glass.dark) Color.White.copy(alpha = 0.12f)
+                        else Color.Black.copy(alpha = 0.06f)
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                MiraCLOIcons.Devices,
+                contentDescription = null,
+                tint = glass.iconOff,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        Column {
+            Text(
+                text = "My Devices",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
+            Text(
+                text = "Tap to add",
+                color = glass.secondaryText,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -228,6 +311,7 @@ internal data class MiraCLOGlass(
     val secondaryText: Color,
     val dark: Boolean,
     val liquid: Boolean,
+    val look: Int = MiraCLOLook.COLOROS,
 )
 
 @Composable
@@ -236,15 +320,26 @@ internal fun miracloGlass(): MiraCLOGlass {
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val accent = Color(0xFF1677FF)
     val liquid = LocalMiraCLOLiquidGlass.current
+    val look = LocalMiraCLOLook.current
+    // Each look has its own material, matching the tiles in Tile.kt.
+    val fill =
+        when (look) {
+            MiraCLOLook.IOS ->
+                if (dark) Color(0xFF787A86).copy(alpha = if (liquid) 0.30f else 0.36f)
+                else Color.White.copy(alpha = if (liquid) 0.50f else 0.70f)
+            MiraCLOLook.ONEUI -> Color.White.copy(alpha = if (dark) 0.13f else 0.22f)
+            else ->
+                if (dark) (if (liquid) Color.White.copy(alpha = 0.10f) else MiraCLOSolidTile)
+                else Color.White.copy(alpha = if (liquid) 0.55f else 0.72f)
+        }
     return MiraCLOGlass(
-        fill =
-            if (dark) (if (liquid) Color.White.copy(alpha = 0.07f) else MiraCLOSolidTile)
-            else Color.White.copy(alpha = if (liquid) 0.30f else 0.55f),
+        fill = fill,
         iconOff = onSurface,
         accent = accent,
         secondaryText = onSurface.copy(alpha = 0.70f),
         dark = dark,
         liquid = liquid,
+        look = look,
     )
 }
 
@@ -254,7 +349,17 @@ private val MiraCLOGlassRim =
 
 @Composable
 internal fun Modifier.glassSurface(glass: MiraCLOGlass, shape: Shape): Modifier =
-    if (glass.liquid && LocalMiraCLORefraction.current) {
+    if (glass.look == MiraCLOLook.ONEUI) {
+        // One UI: flat tinted cards, no rim.
+        this.clip(shape).background(glass.fill, shape)
+    } else if (glass.look == MiraCLOLook.COLOROS && glass.liquid) {
+        // ColorOS: frosted card lit along its contour.
+        // ColorOS: frosted glass, a thin bright rim and a soft light along the top-left edge.
+        this.clip(shape)
+            .background(glass.fill, shape)
+            .background(MiraCLOLiquidHighlight, shape)
+            .border(1.dp, Color.White.copy(alpha = if (glass.dark) 0.18f else 0.95f), shape)
+    } else if (glass.liquid && LocalMiraCLORefraction.current) {
         // SurfaceFlinger draws the refracting glass and its rim; only the tint is drawn here.
         this.miracloRefraction(shape, true).clip(shape).background(glass.fill, shape)
     } else if (glass.liquid) {
@@ -285,7 +390,12 @@ private fun MiraCLOVerticalSlider(
     modifier: Modifier = Modifier,
     fullIconTint: Color? = null,
     vertical: Boolean = true,
+    oneUiIconTint: Color = Color(0xFF3A3A3C),
+    vector: ImageVector? = null,
+    vectorTint: Color = Color(0xFF4A4A4F),
 ) {
+    // One UI: the white fill always covers a round end with the icon on it, and grows from there.
+    val oneUi = glass.look == MiraCLOLook.ONEUI && !vertical
     val view = LocalView.current
     var local by remember { mutableFloatStateOf(fraction) }
     var dragging by remember { mutableStateOf(false) }
@@ -333,6 +443,20 @@ private fun MiraCLOVerticalSlider(
                         .fillMaxWidth()
                         .fillMaxHeight(local.coerceIn(0.001f, 1f))
                         .background(Color.White)
+                } else if (oneUi) {
+                    Modifier.align(Alignment.CenterStart)
+                        .fillMaxHeight()
+                        .layout { measurable, constraints ->
+                            val h = constraints.maxHeight
+                            val w =
+                                (h + (constraints.maxWidth - h) * local.coerceIn(0f, 1f))
+                                    .toInt()
+                                    .coerceIn(0, constraints.maxWidth)
+                            val placeable = measurable.measure(Constraints.fixed(w, h))
+                            layout(w, h) { placeable.place(0, 0) }
+                        }
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(Color.White)
                 } else {
                     Modifier.align(Alignment.CenterStart)
                         .fillMaxHeight()
@@ -340,11 +464,28 @@ private fun MiraCLOVerticalSlider(
                         .background(Color.White)
                 }
         )
+        // MiraCLO: the looks use their own glyphs (ColorOS: a grey sun and blue headphones; the
+        // icon sits on the white fill, or on the glass when the level is low).
+        if (vector != null && glass.look != MiraCLOLook.ONEUI) {
+            Icon(
+                vector,
+                contentDescription = null,
+                tint = if (local > 0.16f) vectorTint else glass.iconOff,
+                modifier =
+                    if (vertical) {
+                        Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp).size(26.dp)
+                    } else {
+                        Modifier.align(Alignment.CenterStart).padding(start = 20.dp).size(24.dp)
+                    },
+            )
+            return@Box
+        }
         Icon(
             painter = painterResource(iconRes),
             contentDescription = null,
             tint =
                 when {
+                    oneUi -> oneUiIconTint
                     fullIconTint != null && local >= MIRACLO_FULL_THRESHOLD -> fullIconTint
                     local > 0.18f -> iconTint
                     else -> glass.iconOff
@@ -381,6 +522,9 @@ internal fun MiraCLOBrightnessSlider(
         iconTint = Color(0xFF1A1A1A),
         // At full brightness only the sun icon turns orange, like the 🔆 emoji.
         fullIconTint = MiraCLOBrightnessFull,
+        oneUiIconTint = Color(0xFFFF7A00),
+        vector = MiraCLOIcons.LightMode,
+        vectorTint = if (glass.look == MiraCLOLook.IOS) Color(0xFFFFC400) else Color(0xFF4A4A4F),
         label = "Brightness",
         glass = glass,
         onChange = { f -> scope.launch { viewModel.onDrag(Drag.Dragging(toGamma(f))) } },
@@ -415,6 +559,8 @@ internal fun MiraCLOVolumeSlider(
             if (current?.isMuted == true || fraction == 0f) R.drawable.ic_volume_media_mute
             else R.drawable.ic_volume_media,
         iconTint = glass.accent,
+        vector = if (glass.look == MiraCLOLook.IOS) MiraCLOIcons.VolumeUp else MiraCLOIcons.Headphones,
+        vectorTint = Color(0xFF1A7CFF),
         label = "Media volume",
         glass = glass,
         onChange = { f -> scope.launch { audioVolumeInteractor.setVolume(stream, toVolume(f)) } },
@@ -431,9 +577,9 @@ internal fun MiraCLOVolumeSlider(
  */
 internal fun miracloRingerColor(mode: Int): Color =
     when (mode) {
-        AudioManager.RINGER_MODE_NORMAL -> Color(0xFF1677FF)
-        AudioManager.RINGER_MODE_VIBRATE -> Color(0xFFFF8A00)
-        else -> Color(0xFFF2453D)
+        AudioManager.RINGER_MODE_NORMAL -> Color(0xFF1A7CFF)
+        AudioManager.RINGER_MODE_VIBRATE -> Color(0xFFFF3B30)
+        else -> Color(0xFFFF3B30)
     }
 
 @Composable
@@ -453,11 +599,11 @@ internal fun MiraCLORingerSwitch(
             Triple(AudioManager.RINGER_MODE_SILENT, R.drawable.ic_volume_ringer_mute, "Silent"),
         )
     val shape = RoundedCornerShape(percent = 50)
-    val bubble = height - 18.dp
+    val bubble = height - 16.dp
 
     Row(
         modifier =
-            modifier.height(height).glassSurface(glass, shape).padding(horizontal = 9.dp),
+            modifier.height(height).glassSurface(glass, shape).padding(horizontal = 4.dp),
         horizontalArrangement = spacedBy(0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -497,11 +643,11 @@ internal fun MiraCLORingerSwitch(
                         contentDescription = null,
                         tint =
                             when {
-                                !selected -> glass.iconOff
+                                !selected -> glass.secondaryText
                                 glass.dark -> modeColor
                                 else -> Color.White
                             },
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(if (selected) 24.dp else 20.dp),
                     )
                 }
             }

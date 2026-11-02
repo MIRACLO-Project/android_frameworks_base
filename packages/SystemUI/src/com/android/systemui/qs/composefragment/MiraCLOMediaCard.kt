@@ -28,15 +28,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -44,19 +47,24 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import com.android.compose.ui.graphics.painter.rememberDrawablePainter
 import com.android.systemui.media.controls.domain.pipeline.MediaDataManager
 import com.android.systemui.media.controls.shared.model.MediaAction
 import com.android.systemui.media.controls.shared.model.MediaData
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.LocalMiraCLOLook
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOLook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -104,6 +112,10 @@ internal fun MiraCLOMediaCard(
     onOpen: (PendingIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (LocalMiraCLOLook.current == MiraCLOLook.COLOROS) {
+        MiraCLOColorOSMediaCard(data, onOpen, modifier)
+        return
+    }
     val context = LocalContext.current
     val artwork by
         produceState<ImageBitmap?>(initialValue = null, data.artwork) {
@@ -121,8 +133,44 @@ internal fun MiraCLOMediaCard(
         }
     val buttons = data.semanticActions
     val shape = RoundedCornerShape(32.dp)
+    // ColorOS: the card glows in the colour of its album art.
+    val glow =
+        remember(artwork) {
+            artwork?.let { art ->
+                runCatching {
+                        val source =
+                            art.asAndroidBitmap().let {
+                                if (it.config == android.graphics.Bitmap.Config.HARDWARE) {
+                                    it.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                                } else {
+                                    it
+                                }
+                            }
+                        val one = android.graphics.Bitmap.createScaledBitmap(source, 1, 1, true)
+                        Color(one.getPixel(0, 0))
+                    }
+                    .getOrNull()
+            }
+        }
+    val showGlow = glow != null && LocalMiraCLOLook.current == MiraCLOLook.COLOROS
 
-    Box(modifier.clip(shape).background(Color(0xFF2C2C2E))) {
+    Box(
+        modifier
+            .then(
+                if (showGlow && glow != null) {
+                    Modifier.shadow(
+                        elevation = 28.dp,
+                        shape = shape,
+                        ambientColor = glow,
+                        spotColor = glow,
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .clip(shape)
+            .background(Color(0xFF2C2C2E))
+    ) {
         artwork?.let { bitmap ->
             Image(
                 bitmap = bitmap,
@@ -203,7 +251,7 @@ private fun MiraCLOMediaButton(action: MediaAction?, iconSize: Dp) {
             Icon(
                 painter = rememberDrawablePainter(icon),
                 contentDescription = null,
-                tint = Color.White,
+                tint = LocalMiraCLOMediaInk.current,
                 modifier = Modifier.size(iconSize),
             )
         }
@@ -218,6 +266,7 @@ private fun MiraCLOMediaButton(action: MediaAction?, iconSize: Dp) {
 @Composable
 private fun MiraCLOPlayPauseButton(action: MediaAction?, playing: Boolean) {
     var shown by remember(playing) { mutableStateOf(playing) }
+    val ink = LocalMiraCLOMediaInk.current
     Box(
         contentAlignment = Alignment.Center,
         modifier =
@@ -235,8 +284,8 @@ private fun MiraCLOPlayPauseButton(action: MediaAction?, playing: Boolean) {
             if (shown) {
                 val bar = w * 0.26f
                 val r = CornerRadius(bar * 0.3f, bar * 0.3f)
-                drawRoundRect(Color.White, Offset(w * 0.17f, h * 0.12f), Size(bar, h * 0.76f), r)
-                drawRoundRect(Color.White, Offset(w * 0.57f, h * 0.12f), Size(bar, h * 0.76f), r)
+                drawRoundRect(ink, Offset(w * 0.17f, h * 0.12f), Size(bar, h * 0.76f), r)
+                drawRoundRect(ink, Offset(w * 0.57f, h * 0.12f), Size(bar, h * 0.76f), r)
             } else {
                 val path =
                     Path().apply {
@@ -245,7 +294,7 @@ private fun MiraCLOPlayPauseButton(action: MediaAction?, playing: Boolean) {
                         lineTo(w * 0.26f, h * 0.90f)
                         close()
                     }
-                drawPath(path, Color.White)
+                drawPath(path, ink)
             }
         }
     }
@@ -253,3 +302,130 @@ private fun MiraCLOPlayPauseButton(action: MediaAction?, playing: Boolean) {
 
 private suspend fun loadIcon(icon: AndroidIcon, context: Context): Drawable? =
     withContext(Dispatchers.IO) { runCatching { icon.loadDrawable(context) }.getOrNull() }
+
+/** Colour of the media buttons: white over album art, the text colour on glass. */
+private val LocalMiraCLOMediaInk = staticCompositionLocalOf { Color.White }
+
+/**
+ * ColorOS 17 media card: frosted glass (not the album art) with the art as a 44dp tile at the
+ * top left and its colour glowing softly behind it, the output icon at the top right, the title
+ * (15sp) and artist (12sp), then previous, play/pause and next.
+ */
+@Composable
+private fun MiraCLOColorOSMediaCard(
+    data: MediaData,
+    onOpen: (PendingIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val glass = miracloGlass()
+    val ink = MaterialTheme.colorScheme.onSurface
+    val artwork by
+        produceState<ImageBitmap?>(initialValue = null, data.artwork) {
+            value =
+                data.artwork?.let { icon ->
+                    withContext(Dispatchers.IO) {
+                        runCatching { icon.loadDrawable(context)?.toBitmap()?.asImageBitmap() }
+                            .getOrNull()
+                    }
+                }
+        }
+    val glow =
+        remember(artwork) {
+            artwork?.let { art ->
+                runCatching {
+                        val source =
+                            art.asAndroidBitmap().let {
+                                if (it.config == android.graphics.Bitmap.Config.HARDWARE) {
+                                    it.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                                } else {
+                                    it
+                                }
+                            }
+                        Color(android.graphics.Bitmap.createScaledBitmap(source, 1, 1, true).getPixel(0, 0))
+                    }
+                    .getOrNull()
+            }
+        }
+    val buttons = data.semanticActions
+    val shape = RoundedCornerShape(30.dp)
+    Box(modifier.glassSurface(glass, shape)) {
+        // The art's colour, blurred, behind the top of the card.
+        glow?.let { c ->
+            Box(
+                Modifier.matchParentSize()
+                    .background(
+                        Brush.radialGradient(
+                            listOf(c.copy(alpha = if (glass.dark) 0.45f else 0.32f), Color.Transparent),
+                            center = Offset(150f, 90f),
+                            radius = 260f,
+                        )
+                    )
+            )
+        }
+        Column(
+            modifier =
+                Modifier.fillMaxSize()
+                    .clickable(enabled = data.clickIntent != null) { data.clickIntent?.let(onOpen) }
+                    .semantics {
+                        contentDescription =
+                            listOfNotNull(data.song, data.artist, data.app).joinToString(", ")
+                    }
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Box(
+                    Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF4D7F99))
+                ) {
+                    artwork?.let {
+                        Image(
+                            bitmap = it,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+                Icon(
+                    MiraCLOIcons.Headphones,
+                    contentDescription = null,
+                    tint = ink,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Column {
+                Text(
+                    text = data.song?.toString().orEmpty(),
+                    color = ink,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = data.artist?.toString().orEmpty(),
+                    color = glass.secondaryText,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            CompositionLocalProvider(LocalMiraCLOMediaInk provides ink) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MiraCLOMediaButton(buttons?.prevOrCustom, iconSize = 18.dp)
+                    MiraCLOPlayPauseButton(buttons?.playOrPause, playing = data.isPlaying == true)
+                    MiraCLOMediaButton(buttons?.nextOrCustom, iconSize = 18.dp)
+                }
+            }
+        }
+    }
+}
