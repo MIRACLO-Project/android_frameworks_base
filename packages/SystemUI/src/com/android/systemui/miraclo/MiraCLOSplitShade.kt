@@ -29,22 +29,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * MiraCLO split shade (Settings > Display > Split shade). Pulling the shade down from the
- * Quick Settings side of the top edge opens Quick Settings straight away; pulling from the
- * other side opens notifications only, with Quick Settings hidden until a pull from the Quick
- * Settings side switches to it. Quick Settings is on the right unless the sides are swapped.
- * Main thread only.
+ * MiraCLO split shade, always on. Pulling the shade down from the Quick Settings side of the
+ * top edge opens Quick Settings only; pulling from the other side opens notifications only.
+ * Quick Settings is on the right unless the sides are swapped (Mira Studio > Notification
+ * shade). Main thread only.
  */
 object MiraCLOSplitShade {
-    const val KEY = "miraclo_split_shade"
     const val KEY_SWAP = "miraclo_split_shade_swap"
+    private const val KEY_QS_STYLE = "miraclo_qs_style"
 
-    @Volatile private var enabled = false
+    private const val enabled = true
     @Volatile private var swapped = false
+    @Volatile private var qsStyle = 0
     private var appContext: Context? = null
 
     /** Whether split shade is on, as Compose state so Quick Settings follows the setting. */
-    var enabledState by mutableStateOf(false)
+    var enabledState by mutableStateOf(true)
         private set
 
     /** True while the shade shows notifications only. Read by Quick Settings to hide itself. */
@@ -68,6 +68,13 @@ object MiraCLOSplitShade {
     @JvmStatic
     fun isNotificationsOnly(): Boolean = notificationsOnly
 
+    /**
+     * Whether the shade header steps aside: the ColorOS, iOS and One UI looks draw their own
+     * header on the Quick Settings side.
+     */
+    @JvmStatic
+    fun hideHeader(): Boolean = !notificationsOnly && qsStyle in MIRACLO_LOOKS
+
     /** Starts watching the settings (Quick Settings calls this once). */
     @JvmStatic
     fun watch(context: Context) = ensureWatching(context)
@@ -76,6 +83,12 @@ object MiraCLOSplitShade {
     @JvmStatic
     fun onPullStarted(context: Context, x: Float, width: Int) {
         notificationsOnly = isEnabled(context) && !isQsSide(context, x, width)
+    }
+
+    /** Opens the given side without a touch: Quick Settings or notifications. */
+    @JvmStatic
+    fun setSide(quickSettings: Boolean) {
+        notificationsOnly = !quickSettings
     }
 
     /** Called when the user switches to Quick Settings or the shade closes. */
@@ -93,7 +106,7 @@ object MiraCLOSplitShade {
                 object : ContentObserver(Handler(Looper.getMainLooper())) {
                     override fun onChange(selfChange: Boolean, uri: Uri?) = refresh()
                 }
-            for (key in listOf(KEY, KEY_SWAP)) {
+            for (key in listOf(KEY_SWAP, KEY_QS_STYLE)) {
                 app.contentResolver.registerContentObserver(
                     Settings.Secure.getUriFor(key), false, observer, UserHandle.USER_ALL)
             }
@@ -105,17 +118,19 @@ object MiraCLOSplitShade {
 
     private fun refresh() {
         val context = appContext ?: return
-        enabled = read(context, KEY)
-        swapped = read(context, KEY_SWAP)
+        swapped = read(context, KEY_SWAP, 0) != 0
+        qsStyle = read(context, KEY_QS_STYLE, 0)
         enabledState = enabled
-        if (!enabled) notificationsOnly = false
     }
 
-    private fun read(context: Context, key: String): Boolean =
+    private fun read(context: Context, key: String, def: Int): Int =
         try {
             Settings.Secure.getIntForUser(
-                context.contentResolver, key, 0, ActivityManager.getCurrentUser()) != 0
+                context.contentResolver, key, def, ActivityManager.getCurrentUser())
         } catch (_: Exception) {
-            false
+            def
         }
 }
+
+/** Quick Settings styles that bring their own header: ColorOS, iOS and One UI. */
+private val MIRACLO_LOOKS = setOf(1, 2, 4)

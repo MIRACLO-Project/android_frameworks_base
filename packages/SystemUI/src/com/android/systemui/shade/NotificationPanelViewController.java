@@ -1331,6 +1331,9 @@ public final class NotificationPanelViewController implements
     }
 
     public void expandToQs() {
+        if (isFullyCollapsed()) {
+            mQsController.miracloOpenSide(true);
+        }
         if (mQsController.isExpansionEnabled()) {
             mQsController.setExpandImmediate(true);
             setShowShelfOnly(true);
@@ -1362,6 +1365,9 @@ public final class NotificationPanelViewController implements
     public void expandToNotifications() {
         if (mSplitShadeEnabled && (isShadeFullyExpanded() || isExpandingOrCollapsing())) {
             return;
+        }
+        if (isFullyCollapsed()) {
+            mQsController.miracloOpenSide(false);
         }
         if (mQsController.getExpanded()) {
             mQsController.flingQs(0, FLING_COLLAPSE);

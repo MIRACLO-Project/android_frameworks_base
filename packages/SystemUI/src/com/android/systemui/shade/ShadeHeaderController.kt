@@ -58,6 +58,7 @@ import com.android.systemui.demomode.DemoMode
 import com.android.systemui.demomode.DemoModeController
 import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent
 import com.android.systemui.dump.DumpManager
+import com.android.systemui.miraclo.MiraCLOSplitShade
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.qs.ChipVisibilityListener
 import com.android.systemui.qs.HeaderPrivacyIconsController
@@ -227,6 +228,7 @@ constructor(
                 field = value
                 updateIgnoredSlots()
             }
+            miracloUpdateClock()
         }
 
     /** Expansion fraction of the QQS <-> QS animation. */
@@ -238,7 +240,13 @@ constructor(
                 updatePosition()
                 updateIgnoredSlots()
             }
+            miracloUpdateClock()
         }
+
+    /** MiraCLO: the MiraCLO looks draw their own header, so the stock one steps aside. */
+    private fun miracloUpdateClock() {
+        if (MiraCLOSplitShade.hideHeader()) header.alpha = 0f
+    }
 
     /** Current scroll of QS. */
     var qsScrollY = 0

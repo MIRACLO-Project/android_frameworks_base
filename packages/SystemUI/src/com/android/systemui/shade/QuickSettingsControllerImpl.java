@@ -44,6 +44,7 @@ import android.util.Log;
 import android.util.MathUtils;
 import android.view.Display;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.VelocityTracker;
 import android.view.ViewConfiguration;
 import android.view.WindowInsets;
@@ -79,6 +80,7 @@ import com.android.systemui.media.controls.domain.pipeline.MediaDataManager;
 import com.android.systemui.media.controls.ui.controller.MediaHierarchyManager;
 import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.plugins.qs.QS;
+import com.android.systemui.miraclo.MiraCLOShadePanels;
 import com.android.systemui.miraclo.MiraCLOSplitShade;
 import com.android.systemui.res.R;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
@@ -177,6 +179,13 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     private final MetricsLogger mMetricsLogger;
     private final Resources mResources;
     private boolean mMiracloPanelExpanded;
+    /** MiraCLO split shade: keeps notifications out of view while Quick Settings shows. */
+    private final MiraCLOShadePanels mMiracloPanels = new MiraCLOShadePanels(this::miracloStackView);
+
+    /** The notification stack, read only once a pull starts (the field is set in the constructor). */
+    private View miracloStackView() {
+        return mNotificationStackScrollLayoutController.getView();
+    }
 
     /** Whether the notifications are displayed full width (no margins on the side). */
     private boolean mIsFullWidth;
@@ -633,6 +642,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         // MiraCLO split shade: forget "notifications only" once the shade has closed again.
         if (mMiracloPanelExpanded && !panelExpanded) {
             MiraCLOSplitShade.showQuickSettings();
+            mMiracloPanels.onClosed();
         }
         mMiracloPanelExpanded = panelExpanded;
         if (mQs != null) {
@@ -744,11 +754,28 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                     mResources.getDisplayMetrics().widthPixels);
         }
 
+        // MiraCLO split shade: Quick Settings shows on its own, so a swipe up closes the whole
+        // shade (the panel slides away) instead of first shrinking Quick Settings to its row of
+        // quick tiles, which left an empty strip during the animation.
+        if (getExpanded() && !mSplitShadeEnabled
+                && MiraCLOSplitShade.isEnabled(mQsFrame.getContext())) {
+            return false;
+        }
+
         if (getExpanded()) {
             return onHeader || (yDiff < 0 && isTouchInQsArea(x, y));
         } else {
             return onHeader;
         }
+    }
+
+    /**
+     * MiraCLO split shade: opens the shade on one side without a touch (the expand commands, a
+     * tile or an app asking for Quick Settings or notifications).
+     */
+    public void miracloOpenSide(boolean quickSettings) {
+        MiraCLOSplitShade.setSide(quickSettings);
+        mMiracloPanels.onPull(quickSettings);
     }
 
     /** Returns amount header should be translated */
@@ -1473,10 +1500,10 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                     (float) (getMaxExpansionHeight()), computeExpansionFraction());
             return topPadding;
         } else if (MiraCLOSplitShade.isNotificationsOnly()) {
-            // MiraCLO split shade: notifications only. Quick Settings is hidden, so the list
-            // starts right under the shade header instead of under the space Quick Settings
-            // would take.
-            return Math.max(getHeaderHeight(), mQuickQsHeaderHeight);
+            // MiraCLO split shade: notifications only. Quick Settings (Quick Quick Settings
+            // included) is hidden, so the list starts right under the shade header row instead
+            // of under the space the hidden tiles would take.
+            return mQuickQsHeaderHeight;
         } else {
             topPadding = Math.max(mQsFrameTranslateController.getNotificationsTopPadding(
                     mExpansionHeight, mNotificationStackScrollLayoutController),
@@ -1736,9 +1763,13 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         if (action == MotionEvent.ACTION_DOWN && isFullyCollapsed && isExpansionEnabled()) {
             mTwoFingerExpandPossible = true;
         }
-        if (action == MotionEvent.ACTION_DOWN && isFullyCollapsed && isInStatusBar) {
+        // MiraCLO: any pull that starts with the shade closed picks its side, including the
+        // pulls the launcher forwards from the home screen (they don't start on the status bar).
+        if (action == MotionEvent.ACTION_DOWN && isFullyCollapsed) {
             MiraCLOSplitShade.onPullStarted(mQsFrame.getContext(), event.getX(),
                     mResources.getDisplayMetrics().widthPixels);
+            // Quick Settings side: the notifications stay out of view, QS shows on its own.
+            mMiracloPanels.onPull(!MiraCLOSplitShade.isNotificationsOnly());
         }
         if (mTwoFingerExpandPossible && isOpenQsEvent(event) && isInStatusBar) {
             mMetricsLogger.count(COUNTER_PANEL_OPEN_QS, 1);
@@ -2059,6 +2090,13 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                 mPanelViewControllerLazy.get().notifyExpandingFinished();
                 mNotificationStackScrollLayoutController.resetCheckSnoozeLeavebehind();
                 mExpansionAnimator = null;
+                // MiraCLO split shade: Quick Settings is shown on its own, so collapsing it
+                // (a swipe up) closes the shade instead of leaving an empty panel.
+                if (type == FLING_COLLAPSE && !mIsCanceled
+                        && !mSplitShadeEnabled && !MiraCLOSplitShade.isNotificationsOnly()) {
+                    mPanelViewControllerLazy.get().collapse(false /* delayed */,
+                            1.0f /* speedUpFactor */);
+                }
                 if (onFinishRunnable != null) {
                     onFinishRunnable.run();
                 }
