@@ -2668,7 +2668,9 @@ public class UsbManager {
             if (FUNCTION_NAME_TO_CODE.containsKey(function)) {
                 ret |= FUNCTION_NAME_TO_CODE.get(function);
             } else if (function.length() > 0) {
-                throw new IllegalArgumentException("Invalid usb function " + functions);
+                // Vendor-only functions (Qualcomm's diag, serial_cdev, rmnet, ...) can be
+                // set by the vendor; the framework cannot manage them, so skip them.
+                Log.w(TAG, "Ignoring unknown usb function " + function + " in " + functions);
             }
         }
         return ret;
