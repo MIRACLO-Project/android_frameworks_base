@@ -63,8 +63,9 @@ class VintfHalVibratorManager {
                             nativeHandler);
             return new DefaultHalVibratorManager(managerSupplier, nativeHandler, vibratorFactory);
         }
-        if (ServiceManager.isDeclared(IVibrator.DESCRIPTOR + "/default")) {
-            Slog.v(TAG, "Loading default IVibrator service.");
+        final String vibratorName = VintfHalVibrator.getVibratorServiceName();
+        if (vibratorName != null) {
+            Slog.v(TAG, "Loading IVibrator service " + vibratorName + ".");
             return new LegacyHalVibratorManager(
                     new DefaultHalVibrator(DEFAULT_VIBRATOR_ID, new DefaultVibratorSupplier(),
                             handler, nativeHandler),

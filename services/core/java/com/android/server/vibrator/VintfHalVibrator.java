@@ -95,13 +95,32 @@ class VintfHalVibrator {
         }
     }
 
+    /**
+     * Name of the {@link IVibrator} service to use: "default" when the device declares it,
+     * otherwise the only instance the device declares (some vendors register their single
+     * vibrator under their own instance name). Null when there is no {@link IVibrator}.
+     */
+    @Nullable
+    static String getVibratorServiceName() {
+        final String defaultName = IVibrator.DESCRIPTOR + "/default";
+        if (ServiceManager.isDeclared(defaultName)) {
+            return defaultName;
+        }
+        final String[] instances = ServiceManager.getDeclaredInstances(IVibrator.DESCRIPTOR);
+        if (instances != null && instances.length == 1) {
+            return IVibrator.DESCRIPTOR + "/" + instances[0];
+        }
+        return null;
+    }
+
     /** {@link VintfSupplier} for default {@link IVibrator} service. */
     static final class DefaultVibratorSupplier extends VintfSupplier<IVibrator> {
         @Nullable
         @Override
         IBinder connectToService() {
-            return Binder.allowBlocking(ServiceManager.waitForDeclaredService(
-                    IVibrator.DESCRIPTOR + "/default"));
+            final String name = getVibratorServiceName();
+            return name == null ? null
+                    : Binder.allowBlocking(ServiceManager.waitForDeclaredService(name));
         }
 
         @NonNull
