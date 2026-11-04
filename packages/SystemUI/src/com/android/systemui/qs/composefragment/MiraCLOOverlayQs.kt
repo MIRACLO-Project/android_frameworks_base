@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ import com.android.systemui.qs.ui.viewmodel.QuickSettingsContainerViewModel
 import javax.inject.Inject
 
 /**
- * MiraCLO Quick Settings inside the Android 17 Dual Shade (the Quick Settings overlay).
+ * MIRACLO Quick Settings inside the Android 17 Dual Shade (the Quick Settings overlay).
  *
  * Shows the same ColorOS-style layout as the old shade (wide Wi-Fi / mobile data / Bluetooth
  * tiles, music card, tall brightness and volume sliders, ringer switch, round tiles) with the
@@ -98,11 +98,11 @@ constructor(
 
     private var watching = false
 
-    /** MiraCLO Quick Settings (Settings > Display > Quick Settings style is not Default). */
+    /** MIRACLO Quick Settings (Settings > Display > Quick Settings style is not Default). */
     var qsStyle by mutableStateOf(false)
         private set
 
-    /** Which MiraCLO look: ColorOS, iOS, Nothing or One UI (see [MiraCLOLook]). */
+    /** Which MIRACLO look: ColorOS, iOS, Nothing or One UI (see [MiraCLOLook]). */
     var look by mutableStateOf(MiraCLOLook.COLOROS)
         private set
 
@@ -215,7 +215,7 @@ constructor(
     }
 
     /**
-     * Panel colour behind the MiraCLO Quick Settings, per look: clear with Liquid Glass (the
+     * Panel colour behind the MIRACLO Quick Settings, per look: clear with Liquid Glass (the
      * controls bring their own glass), otherwise the tint each system lays over its blur.
      */
     fun panelColor(dark: Boolean): Color? =
@@ -231,7 +231,7 @@ constructor(
         }
 
     /**
-     * The MiraCLO Quick Settings body, the same size as in the old shade. [glassAlpha] follows
+     * The MIRACLO Quick Settings body, the same size as in the old shade. [glassAlpha] follows
      * the panel's open / close progress so the SurfaceFlinger glass fades with it, as in the
      * old shade.
      */

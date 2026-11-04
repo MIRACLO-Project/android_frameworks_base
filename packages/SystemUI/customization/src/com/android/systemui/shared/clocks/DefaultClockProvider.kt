@@ -64,7 +64,7 @@ constructor(
     }
 
     override fun createClock(ctx: Context, settings: ClockSettings): ClockController {
-        // MiraCLO lock screen clocks.
+        // MIRACLO lock screen clocks.
         com.android.systemui.shared.clocks.miraclo.MiraClocks.createClock(ctx, settings)?.let {
             return it
         }

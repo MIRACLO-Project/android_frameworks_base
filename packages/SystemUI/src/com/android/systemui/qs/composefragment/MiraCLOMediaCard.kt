@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -69,7 +69,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * MiraCLO: keeps the media sessions shown in the ColorOS-style QS media slot.
+ * MIRACLO: keeps the media sessions shown in the ColorOS-style QS media slot.
  *
  * Fed by [MediaDataManager], which is the media pipeline in both the legacy (view) and the compose
  * media modes, so it works whichever one the device uses (marble uses the legacy one).
@@ -102,7 +102,7 @@ class MiraCLOMediaSessions : MediaDataManager.Listener {
 }
 
 /**
- * MiraCLO: square media card for the ColorOS-style Quick Settings (half the panel width), laid out
+ * MIRACLO: square media card for the ColorOS-style Quick Settings (half the panel width), laid out
  * like ColorOS: app icon at the top, title and artist, then previous, play/pause and next in one
  * row, over the album art. Tapping the card opens the media app.
  */

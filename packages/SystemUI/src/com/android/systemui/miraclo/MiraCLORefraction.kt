@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.android.internal.graphics.drawable.BackgroundBlurDrawable
 
 /**
- * MiraCLO Liquid Glass refraction (Settings > Display > Liquid Glass > Refraction).
+ * MIRACLO Liquid Glass refraction (Settings > Display > Liquid Glass > Refraction).
  *
  * The glass is drawn by SurfaceFlinger: each surface gets a blur region of the shade window
  * with refraction values, so what is under the shade (apps, home screen, wallpaper) is bent near

@@ -57,11 +57,11 @@ import com.android.systemui.shade.shared.flag.DualShadeFlag
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 
-/** MiraCLO: gap between tiles and rows in the ColorOS Quick Settings style (ColorOS 17). */
+/** MIRACLO: gap between tiles and rows in the ColorOS Quick Settings style (ColorOS 17). */
 val MiraCLOColorOSGap = 16.dp
 
 /**
- * MiraCLO: round tiles per page in the ColorOS Quick Settings style. Fewer rows than stock so the
+ * MIRACLO: round tiles per page in the ColorOS Quick Settings style. Fewer rows than stock so the
  * whole panel fits without vertical scrolling; extra tiles go to the next page (swipe sideways).
  */
 const val MiraCLOColorOSGridRows = 3
@@ -77,15 +77,15 @@ constructor(
     private val textFeedbackContentViewModelFactory: TextFeedbackContentViewModel.Factory,
     private val tileHapticsViewModelFactory: TileHapticsViewModel.Factory,
 ) : PaginatableGridLayout {
-    /** MiraCLO: what a real tile placed by a MiraCLO QS style needs. */
+    /** MIRACLO: what a real tile placed by a MIRACLO QS style needs. */
     val miracloHaptics: TileHapticsViewModel.Factory
         get() = tileHapticsViewModelFactory
     val miracloDetails: DetailsViewModel
         get() = detailsViewModel
-    /** MiraCLO: small (icon) or large tile, as set in edit mode. */
+    /** MIRACLO: small (icon) or large tile, as set in edit mode. */
     fun miracloIsSmall(spec: com.android.systemui.qs.pipeline.shared.TileSpec): Boolean =
         iconTilesViewModel.isIconTile(spec)
-    /** MiraCLO: make a tile small (icon) or large, as the stock editor does. */
+    /** MIRACLO: make a tile small (icon) or large, as the stock editor does. */
     fun miracloResize(spec: com.android.systemui.qs.pipeline.shared.TileSpec, toIcon: Boolean) =
         iconTilesViewModel.resize(spec, toIcon)
 
@@ -115,8 +115,8 @@ constructor(
         // Tiles or largeTiles may be updated while this is composed, so listen to any changes
         val sizedTiles =
             remember(tiles, largeTiles, largeTilesSpan, miracloStyle) {
-                // MiraCLO style: the fixed wide tiles (Wi-Fi, mobile data, Bluetooth) are drawn
-                // separately by the MiraCLO layout, so every tile in this grid is a round icon tile.
+                // MIRACLO style: the fixed wide tiles (Wi-Fi, mobile data, Bluetooth) are drawn
+                // separately by the MIRACLO layout, so every tile in this grid is a round icon tile.
                 tiles.map {
                     val wide = !miracloStyle && largeTiles.contains(it.spec)
                     SizedTileImpl(it, if (wide) largeTilesSpan else 1)
@@ -130,7 +130,7 @@ constructor(
         val spans by remember(sizedTiles) { derivedStateOf { sizedTiles.fastMap { it.width } } }
         VerticalSpannedGrid(
             columns = columns,
-            // MiraCLO: ColorOS style uses 16dp gaps; Default style is unchanged.
+            // MIRACLO: ColorOS style uses 16dp gaps; Default style is unchanged.
             columnSpacing =
                 if (miracloStyle) MiraCLOColorOSGap
                 else dimensionResource(R.dimen.qs_tile_margin_horizontal),
@@ -172,8 +172,8 @@ constructor(
     }
 
     /**
-     * MiraCLO: draws a single wide tile outside the grid (used for the fixed Wi-Fi, mobile data
-     * and Bluetooth slots of the MiraCLO Quick Settings layout). The caller is responsible for
+     * MIRACLO: draws a single wide tile outside the grid (used for the fixed Wi-Fi, mobile data
+     * and Bluetooth slots of the MIRACLO Quick Settings layout). The caller is responsible for
      * making the tile listen, e.g. with [TileListener].
      */
     @Composable

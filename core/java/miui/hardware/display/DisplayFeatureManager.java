@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,7 +9,7 @@ import android.os.IBinder;
 
 /**
  * Stand-in for the MIUI display-effect service the stock Xiaomi camera calls (screen effects while
- * the viewfinder is open). On MiraCLO the display stack handles brightness itself, so every call
+ * the viewfinder is open). On MIRACLO the display stack handles brightness itself, so every call
  * is accepted and does nothing.
  *
  * @hide

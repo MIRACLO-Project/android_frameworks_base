@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
 import com.android.systemui.res.R
 
 /**
- * MiraCLO editable Quick Settings.
+ * MIRACLO editable Quick Settings.
  *
  * Every control sits on a 4-column grid and has a size in cells: tiles are round (1x1) or wide
  * (2x1), and the music card, brightness, volume, ringer switch and connectivity block have a

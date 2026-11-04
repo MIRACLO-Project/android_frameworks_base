@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ private fun miraProtoTint(style: Int, dark: Boolean): Pair<Color, Color> =
     }
 
 /**
- * The MiraCLO Quick Settings of the separate shade, full screen (no status row, no toolbar),
+ * The MIRACLO Quick Settings of the separate shade, full screen (no status row, no toolbar),
  * drawn by the style picked in Mira Studio.
  */
 @Composable
@@ -124,7 +124,7 @@ internal fun MiraProtoShade(
             stockTileSize = stockTileSize,
             stockEdit = stockEdit,
             styleEdit = styleEdit,
-            buildLabel = "MiraCLO " + SystemProperties.get("ro.miraclo.version", "1.0"),
+            buildLabel = "MIRACLO " + SystemProperties.get("ro.miraclo.version", "1.0"),
         )
     val (base, scrim) = miraProtoTint(style, dark)
     // The tint covers the whole screen and fades in with the pull; only the controls move.

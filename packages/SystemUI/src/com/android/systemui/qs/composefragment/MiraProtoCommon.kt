@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /*
- * MiraCLO Quick Settings for the separate (dual) shade, drawn exactly as the approved prototypes
+ * MIRACLO Quick Settings for the separate (dual) shade, drawn exactly as the approved prototypes
  * (Stock, ColorOS, iOS and One UI, each 390dp wide). Rules:
  * - Only the Stock style follows Material You. ColorOS, iOS and One UI use their own fixed
  *   colours from the prototypes and only switch between their own dark and light palettes with
@@ -261,7 +261,7 @@ internal fun TileViewModel.protoKey(): String =
         else -> s
     }
 
-/** Tiles never shown by the MiraCLO styles (they live elsewhere). */
+/** Tiles never shown by the MIRACLO styles (they live elsewhere). */
 internal val MIRA_PROTO_EXCLUDED = setOf("wallet", "controls", "device_controls")
 
 /** Tiles that open details from their label chevron (ColorOS / One UI). */
@@ -540,7 +540,7 @@ internal fun rememberProtoMedia(
                     }
                 }
         }
-    // MiraCLO: media playing without a notification (YouTube in picture-in-picture) is read
+    // MIRACLO: media playing without a notification (YouTube in picture-in-picture) is read
     // from the system's media sessions.
     val session = rememberMiraActiveSession()
     val dataController =

@@ -175,7 +175,7 @@ constructor(
     private val enableStackedIcon: Boolean =
         context.resources.getBoolean(R.bool.config_enable_stacked_icon)
 
-    // MiraCLO: both SIMs' signals merged into Android 17's stacked icon. Off by default; Mira Studio
+    // MIRACLO: both SIMs' signals merged into Android 17's stacked icon. Off by default; Mira Studio
     // (Top Bar › Icons › Merged SIMs) switches it live.
     private val miracloStackSims: Flow<Boolean> =
         kotlinx.coroutines.flow.callbackFlow {
@@ -528,5 +528,5 @@ constructor(
     }
 }
 
-/** MiraCLO: 1 = both SIMs in one stacked icon (default), 0 = two icons. */
+/** MIRACLO: 1 = both SIMs in one stacked icon (default), 0 = two icons. */
 const val MIRACLO_STACK_SIMS = "miraclo_sb_stack_sims"

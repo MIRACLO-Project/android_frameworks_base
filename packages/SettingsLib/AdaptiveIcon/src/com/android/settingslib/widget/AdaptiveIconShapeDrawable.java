@@ -53,7 +53,7 @@ public class AdaptiveIconShapeDrawable extends ShapeDrawable {
 
     private void init(Resources resources) {
         final float pathSize = AdaptiveIconDrawable.MASK_SIZE;
-        // MiraCLO: Settings icons are circles on every row.
+        // MIRACLO: Settings icons are circles on every row.
         final Path path = new Path();
         path.addCircle(pathSize / 2f, pathSize / 2f, pathSize / 2f, Path.Direction.CW);
         setShape(new PathShape(path, pathSize, pathSize));

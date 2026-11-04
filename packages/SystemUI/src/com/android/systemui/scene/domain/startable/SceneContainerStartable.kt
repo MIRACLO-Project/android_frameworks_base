@@ -602,7 +602,7 @@ constructor(
 
     /** Keeps [SysUiState] up-to-date */
     /**
-     * MiraCLO: a shade swipe (pull down, then push back) can be left half-way with no finger on
+     * MIRACLO: a shade swipe (pull down, then push back) can be left half-way with no finger on
      * the screen. The shade window then keeps every touch, so the gesture bar stops working. If a
      * shade transition stands still like that, close the shade at once.
      */
@@ -637,7 +637,7 @@ constructor(
     }
 
     private fun miracloCloseShade(t: ObservableTransitionState.Transition) {
-        val reason = "MiraCLO: settle a stuck shade swipe"
+        val reason = "MIRACLO: settle a stuck shade swipe"
         when (t) {
             is ObservableTransitionState.Transition.OverlayTransition ->
                 // Same scene, so this only drops the shade overlays, instantly.

@@ -431,7 +431,7 @@ private fun Modifier.expandable(
 }
 
 /**
- * MiraCLO: turns any element into the launch source of a dialog or activity, without changing how
+ * MIRACLO: turns any element into the launch source of a dialog or activity, without changing how
  * it looks (give the controller a transparent color). The tile actions take [expandable].
  */
 @Composable

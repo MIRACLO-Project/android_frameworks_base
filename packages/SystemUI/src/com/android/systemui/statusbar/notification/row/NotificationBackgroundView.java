@@ -94,7 +94,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
     private boolean mDrawDismissButtonCutout = false;
     private boolean mOnKeyguard = true;
 
-    // MiraCLO Liquid Glass: the card fill turns see-through and gets the same gloss and
+    // MIRACLO Liquid Glass: the card fill turns see-through and gets the same gloss and
     // light rim as the Liquid Glass QS and island. Only in the open shade, never on the
     // lock screen or on a heads-up floating over an app.
     private static final float GLASS_FILL = 0.45f;
@@ -164,7 +164,7 @@ public class NotificationBackgroundView extends View implements Dumpable,
     /** Draws the card as glass: a see-through fill, then the gloss and the light rim. */
     private void drawLiquidGlass(Canvas canvas, Drawable drawable, int left, int top, int right,
             int bottom) {
-        // MiraCLO: the shelf (the row of overflow icons under the cards) has no card of its own
+        // MIRACLO: the shelf (the row of overflow icons under the cards) has no card of its own
         // with glass on; only its icons show.
         if (getParent() instanceof com.android.systemui.statusbar.NotificationShelf) {
             return;

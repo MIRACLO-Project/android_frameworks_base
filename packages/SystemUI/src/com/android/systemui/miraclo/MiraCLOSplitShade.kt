@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * MiraCLO split shade, always on. Pulling the shade down from the Quick Settings side of the
+ * MIRACLO split shade, always on. Pulling the shade down from the Quick Settings side of the
  * top edge opens Quick Settings only; pulling from the other side opens notifications only.
  * Quick Settings is on the right unless the sides are swapped (Mira Studio > Notification
  * shade). Main thread only.

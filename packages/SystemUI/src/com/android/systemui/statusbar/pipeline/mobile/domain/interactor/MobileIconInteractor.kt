@@ -586,7 +586,7 @@ class MobileIconInteractorImpl(
                 !hideNoInternetState && (!isDataEnabled || (isDataConnected && isConnectionFailed)
                         || !isInService)
             }
-            // MiraCLO: Mira Studio (Top Bar › Icons › No-data mark) can hide the "!" on the signal.
+            // MIRACLO: Mira Studio (Top Bar › Icons › No-data mark) can hide the "!" on the signal.
             .combine(miracloNoDataMark) { show, allowed -> show && allowed }
             .stateIn(scope, SharingStarted.WhileSubscribed(), true)
 
@@ -697,5 +697,5 @@ class MobileIconInteractorImpl(
     }
 }
 
-/** MiraCLO: 1 = show the "!" on a SIM without data (default), 0 = never. */
+/** MIRACLO: 1 = show the "!" on a SIM without data (default), 0 = never. */
 const val MIRACLO_NO_DATA_MARK = "miraclo_sb_nodata_mark"

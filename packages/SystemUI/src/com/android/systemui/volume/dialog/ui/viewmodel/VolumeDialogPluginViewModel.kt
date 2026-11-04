@@ -108,7 +108,7 @@ constructor(
     }
 
     private suspend fun showDialog(): Unit = suspendCoroutine { continuation ->
-        // MiraCLO: the One UI style panel replaces the stock one unless it is turned off.
+        // MIRACLO: the One UI style panel replaces the stock one unless it is turned off.
         val dialog: Dialog =
             if (isVolumeDialogVertical && MiraCLOVolumeDialog.isEnabled(context)) {
                 miracloVolumeDialogFactory.create()

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,7 +10,7 @@ import android.content.Intent;
 
 /**
  * Stand-in for MIUI's app-lock service ("security"), which the stock Xiaomi camera asks whether it
- * is locked. MiraCLO has no MIUI app lock: nothing is ever locked and every check passes.
+ * is locked. MIRACLO has no MIUI app lock: nothing is ever locked and every check passes.
  *
  * @hide
  */

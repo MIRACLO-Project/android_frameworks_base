@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ import android.view.Gravity;
 import android.view.animation.PathInterpolator;
 
 /**
- * MiraCLO: Material 3 Expressive progress bars for Android's own horizontal ProgressBar.
+ * MIRACLO: Material 3 Expressive progress bars for Android's own horizontal ProgressBar.
  *
  * <p>The played part is a moving wave while the task runs; at 100% (or 0%) it flattens smoothly.
  * The rest of the bar is a flat track after a small gap, with a dot at its end. The layers keep

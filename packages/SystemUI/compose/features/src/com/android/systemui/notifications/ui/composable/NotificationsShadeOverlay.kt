@@ -134,7 +134,7 @@ constructor(
         val animatedBlurRadiusPx: Float by
             animateFloatAsState(targetValue = targetBlurRadiusPx, label = "NSOverlay-blurRadius")
 
-        // MiraCLO: with Liquid Glass notifications the cards are see-through glass, so the panel
+        // MIRACLO: with Liquid Glass notifications the cards are see-through glass, so the panel
         // behind them is clear and the shade blur shows through, as in the old shade.
         val miracloContext = LocalContext.current
         val miracloGlassPanel =

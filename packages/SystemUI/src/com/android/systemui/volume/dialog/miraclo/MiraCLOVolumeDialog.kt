@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ import kotlinx.coroutines.flow.onEach
 
 /**
  * Window for [MiraCLOVolumePanelView], used in place of the stock volume dialog when the
- * MiraCLO volume panel is on. It follows the same visibility as the stock one: shown when
+ * MIRACLO volume panel is on. It follows the same visibility as the stock one: shown when
  * the volume dialog becomes visible, and dismissed (after its exit animation) when that
  * visibility becomes dismissed. Safety and loudness warnings are untouched.
  */
@@ -280,7 +280,7 @@ class MiraCLOVolumeDialog(
     }
 
     companion object {
-        /** Secure setting: 1 for the MiraCLO volume panel, 0 (default) for the stock one. */
+        /** Secure setting: 1 for the MIRACLO volume panel, 0 (default) for the stock one. */
         const val KEY = "miraclo_volume_panel"
 
         @JvmStatic

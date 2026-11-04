@@ -214,7 +214,7 @@ constructor(
      * A flow modeling the active and inactive chips as well as which should be shown in the status
      * bar after accounting for possibly multiple ongoing activities and animation requirements.
      */
-    /** MiraCLO: leaves out the chips the Dynamic Island already shows. */
+    /** MIRACLO: leaves out the chips the Dynamic Island already shows. */
     private val islandFilteredChipBundle =
         combine(incomingChipBundle, IslandChipFilter.state) { bundle, island ->
             if (island.hideAll) return@combine ChipBundle()

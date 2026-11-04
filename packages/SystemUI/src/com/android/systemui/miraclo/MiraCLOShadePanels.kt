@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@ package com.android.systemui.miraclo
 import android.view.View
 
 /**
- * MiraCLO split shade: keeps the notification list out of view while Quick Settings shows on
+ * MIRACLO split shade: keeps the notification list out of view while Quick Settings shows on
  * its own. A pull from the Quick Settings side moves the list off screen before the shade opens;
  * closing the shade brings it back. Main thread only.
  */

@@ -77,7 +77,7 @@ public class StatusIconContainer extends AlphaOptimizedLinearLayout {
     private ArrayList<View> mMeasureViews = new ArrayList<>();
     // Any ignored icon will never be added as a child
     private Set<String> mIgnoredSlots = new HashSet<>();
-    // MiraCLO: Dynamic Island pills showing (IslandStatusBarSpace mode), and the one network
+    // MIRACLO: Dynamic Island pills showing (IslandStatusBarSpace mode), and the one network
     // slot kept beside a lone main pill.
     private int mIslandMode = 0;
     @Nullable private String mIslandKeepSlot;
@@ -317,7 +317,7 @@ public class StatusIconContainer extends AlphaOptimizedLinearLayout {
     }
 
     /**
-     * MiraCLO: while Dynamic Island pills show, keep only one network icon (Wi-Fi, else mobile)
+     * MIRACLO: while Dynamic Island pills show, keep only one network icon (Wi-Fi, else mobile)
      * beside a lone main pill, and no icons at all beside side pills. The battery is not in this
      * container and always stays.
      *

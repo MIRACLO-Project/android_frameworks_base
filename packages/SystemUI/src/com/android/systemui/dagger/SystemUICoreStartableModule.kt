@@ -102,7 +102,7 @@ abstract class SystemUICoreStartableModule {
     @ClassKey(InstantAppNotifier::class)
     abstract fun bindInstantAppNotifier(sysui: InstantAppNotifier): CoreStartable
 
-    /** MiraCLO: Dynamic Island (off by default, Settings > Notifications > Dynamic Island). */
+    /** MIRACLO: Dynamic Island (off by default, Settings > Notifications > Dynamic Island). */
     @Binds
     @IntoMap
     @ClassKey(MiraCLOIslandController::class)

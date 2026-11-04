@@ -36,7 +36,7 @@ fun SettingsTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = materialColorScheme(isDarkTheme),
         typography = rememberSettingsTypography(),
-        // MiraCLO: Standard, Expressive or Snappy, from Mira Studio › Animations
+        // MIRACLO: Standard, Expressive or Snappy, from Mira Studio › Animations
         motionScheme = MiraMotion.scheme(LocalContext.current),
     ) {
         CompositionLocalProvider(

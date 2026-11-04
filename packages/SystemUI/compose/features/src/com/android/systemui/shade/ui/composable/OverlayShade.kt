@@ -75,7 +75,7 @@ fun ContentScope.OverlayShade(
         { _, _, _ ->
         },
     header: @Composable () -> Unit,
-    // MiraCLO: Quick Settings with its own glass draws its own panel colour.
+    // MIRACLO: Quick Settings with its own glass draws its own panel colour.
     panelColor: Color? = null,
     content: @Composable () -> Unit,
 ) {

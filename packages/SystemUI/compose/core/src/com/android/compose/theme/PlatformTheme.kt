@@ -77,7 +77,7 @@ fun PlatformTheme(isDarkTheme: Boolean = isSystemInDarkTheme(), content: @Compos
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typography,
-        // MiraCLO: Standard, Expressive or Snappy, from Mira Studio › Animations
+        // MIRACLO: Standard, Expressive or Snappy, from Mira Studio › Animations
         motionScheme = MiraMotion.scheme(context),
     ) {
         CompositionLocalProvider(

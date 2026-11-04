@@ -129,7 +129,7 @@ fun ShadeHighlightChip(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    // MiraCLO: Settings > Display > Status bar chips can turn the chip backgrounds off.
+    // MIRACLO: Settings > Display > Status bar chips can turn the chip backgrounds off.
     val miracloContext = LocalContext.current
     remember { MiraCLOShadeChips.watch(miracloContext) }
 

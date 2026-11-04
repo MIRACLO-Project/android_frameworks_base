@@ -203,7 +203,7 @@ fun BatteryLayout(
     modifier: Modifier,
     contentDescription: String = "",
 ) {
-    // MiraCLO: the battery shape follows the status bar icon style (its overlay sets it).
+    // MIRACLO: the battery shape follows the status bar icon style (its overlay sets it).
     val miracloContext = androidx.compose.ui.platform.LocalContext.current
     val miracloConfig = androidx.compose.ui.platform.LocalConfiguration.current
     val miracloStyle =

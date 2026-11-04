@@ -75,7 +75,7 @@ public final class BackgroundBlurDrawable extends Drawable {
     private float mCornerRadiusBRX;
     private float mCornerRadiusBRY;
     private int mAlpha = 255;
-    // MiraCLO Liquid Glass: refraction > 0 makes SurfaceFlinger bend what is behind near the edge.
+    // MIRACLO Liquid Glass: refraction > 0 makes SurfaceFlinger bend what is behind near the edge.
     private float mRefraction;
     private float mBevel;
     private float mDispersion;
@@ -166,7 +166,7 @@ public final class BackgroundBlurDrawable extends Drawable {
      * Blur radius in pixels.
      */
     /**
-     * MiraCLO Liquid Glass: bends what is behind this drawable near its edge. {@code refraction}
+     * MIRACLO Liquid Glass: bends what is behind this drawable near its edge. {@code refraction}
      * 0 turns it off; {@code bevelPx} is the width of the bent edge in pixels and
      * {@code dispersion} how far apart the colours split there.
      */

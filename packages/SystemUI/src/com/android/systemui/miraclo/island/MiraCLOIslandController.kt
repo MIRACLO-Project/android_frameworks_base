@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -59,7 +59,7 @@ import java.util.concurrent.Executor
 import javax.inject.Inject
 
 /**
- * MiraCLO Dynamic Island.
+ * MIRACLO Dynamic Island.
  *
  * Collects live activities (media, ongoing calls, Clock timer and stopwatch), decides which are
  * shown and where, and hands that to [MiraCLOIslandView], which draws and animates it.
@@ -329,7 +329,7 @@ constructor(
         val r = context.contentResolver
         fun on(key: String, def: Int) = Settings.Secure.getIntForUser(r, key, def, user) != 0
         islandEnabled = on(KEY_ENABLED, 0)
-        // MiraCLO: every part starts off; each is turned on in Settings.
+        // MIRACLO: every part starts off; each is turned on in Settings.
         showMedia = on(KEY_MEDIA, 0)
         showCalls = on(KEY_CALLS, 0)
         showTimers = on(KEY_TIMERS, 0)
@@ -345,7 +345,7 @@ constructor(
         systemSources.lowBatteryEnabled = on(KEY_LOW_BATTERY, 0)
         config =
             MiraCLOIslandView.Config(
-                // MiraCLO Liquid Glass glow also lights the island under the finger.
+                // MIRACLO Liquid Glass glow also lights the island under the finger.
                 touchGlow = on(KEY_TOUCH_GLOW, 0) ||
                     (on(KEY_LIQUID_GLASS, 0) && on(MiraCLORefraction.KEY_GLOW, 0)),
                 glass = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND, 0),

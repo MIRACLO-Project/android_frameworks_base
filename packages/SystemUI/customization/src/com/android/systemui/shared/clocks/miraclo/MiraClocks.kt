@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -48,7 +48,7 @@ import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * MiraCLO lock screen clocks: 18 styles drawn with the system fonts. They are served by
+ * MIRACLO lock screen clocks: 18 styles drawn with the system fonts. They are served by
  * [com.android.systemui.shared.clocks.DefaultClockProvider], so the wallpaper & style picker and
  * Mira Studio both list them. Weight and size come from Mira Studio (Settings.Secure
  * "miraclo_lock_clock_weight" 0 = the style's own, 100..900; "miraclo_lock_clock_scale" percent).

@@ -236,38 +236,38 @@ constructor(
     private var bottomBarPositionInRoot = IntRect(IntOffset(0, 0), 0)
     private var bottomContentPadding by mutableIntStateOf(0)
 
-    /** MiraCLO: whether the ColorOS-style Quick Settings layout is on ([MIRACLO_QS_STYLE]). */
+    /** MIRACLO: whether the ColorOS-style Quick Settings layout is on ([MIRACLO_QS_STYLE]). */
     private var miracloQsStyle by mutableStateOf(false)
-    /** MiraCLO: the Quick Settings look chosen in Settings (see [MiraCLOLook]). */
+    /** MIRACLO: the Quick Settings look chosen in Settings (see [MiraCLOLook]). */
     private var miracloLook by mutableIntStateOf(MiraCLOLook.COLOROS)
     private var miracloLiquidGlass by mutableStateOf(false)
     private var miracloRefraction by mutableStateOf(false)
     private var miracloGlow by mutableStateOf(false)
-    // MiraCLO: stock Quick Settings options from Mira Studio.
+    // MIRACLO: stock Quick Settings options from Mira Studio.
     private var miracloRoundTiles by mutableStateOf(false)
     private var miracloTileSize by mutableIntStateOf(0)
     private var miracloLayoutStore: MiraCLOLayoutStore? = null
     private val miracloEditor = MiraCLOQsEditor()
 
-    /** MiraCLO: top of the QS scroll column on screen, taken when QS is fully open. */
+    /** MIRACLO: top of the QS scroll column on screen, taken when QS is fully open. */
     private var miracloColumnTop by mutableFloatStateOf(-1f)
 
-    /** MiraCLO: how much the 390dp-wide mocks are scaled to fit this screen. */
+    /** MIRACLO: how much the 390dp-wide mocks are scaled to fit this screen. */
     @Composable
     private fun miracloScale(): Float = LocalConfiguration.current.screenWidthDp / 390f
 
-    /** MiraCLO: the iOS look's page and grown connectivity module. */
+    /** MIRACLO: the iOS look's page and grown connectivity module. */
     private val miracloIos = MiraCLOIosState()
 
-    /** MiraCLO: whether the iOS pages take vertical swipes instead of the shade. */
+    /** MIRACLO: whether the iOS pages take vertical swipes instead of the shade. */
     private fun miracloIosPages(): Boolean =
         miracloQsStyle && miracloLook == MiraCLOLook.IOS && !miracloEditor.editing
 
-    /** MiraCLO: media sessions for the ColorOS-style QS media card. */
+    /** MIRACLO: media sessions for the ColorOS-style QS media card. */
     private val miracloMediaSessions = MiraCLOMediaSessions()
 
     /**
-     * MiraCLO: the portrait ColorOS layout always fits, so QS never scrolls and a swipe up always
+     * MIRACLO: the portrait ColorOS layout always fits, so QS never scrolls and a swipe up always
      * collapses it. In landscape the panel is too short, so it scrolls like stock.
      */
     private fun miracloNoVerticalScroll(): Boolean =
@@ -276,7 +276,7 @@ constructor(
             !miracloEditor.editing &&
             context?.resources?.configuration?.orientation != Configuration.ORIENTATION_LANDSCAPE
 
-    /** MiraCLO: Settings.Secure keys this fragment follows live. */
+    /** MIRACLO: Settings.Secure keys this fragment follows live. */
     private val miracloSecureKeys =
         listOf(
             MIRACLO_QS_STYLE,
@@ -288,7 +288,7 @@ constructor(
             MIRACLO_QS_TILE_SIZE,
         )
 
-    /** MiraCLO: re-reads the MiraCLO settings whenever one of them changes. */
+    /** MIRACLO: re-reads the MIRACLO settings whenever one of them changes. */
     private val miracloSettingsObserver =
         object : ContentObserver(mainHandler) {
             override fun onChange(selfChange: Boolean) {
@@ -296,7 +296,7 @@ constructor(
             }
         }
 
-    /** MiraCLO: the settings are per user, so read them again after a user switch. */
+    /** MIRACLO: the settings are per user, so read them again after a user switch. */
     private val miracloUserCallback =
         object : UserTracker.Callback {
             override fun onUserChanged(newUser: Int, userContext: Context) {
@@ -332,7 +332,7 @@ constructor(
         super.onStop()
     }
 
-    /** MiraCLO: reads every MiraCLO setting this fragment uses for the current user. */
+    /** MIRACLO: reads every MIRACLO setting this fragment uses for the current user. */
     private fun readMiraCLOSettings() {
         val resolver = context?.contentResolver ?: return
         val userId = userTracker.userId
@@ -346,7 +346,7 @@ constructor(
         miracloLiquidGlass =
             Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS, 0, userId) != 0 &&
                 Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS_QS, 0, userId) != 0
-        // MiraCLO: refraction is part of Liquid Glass (no separate switch)
+        // MIRACLO: refraction is part of Liquid Glass (no separate switch)
         miracloRefraction = miracloLiquidGlass
         miracloGlow =
             miracloLiquidGlass &&
@@ -391,10 +391,10 @@ constructor(
         val canScrollQs =
             object : CanScrollQs {
                 override fun forward(): Boolean {
-                    // MiraCLO: the ColorOS layout pages sideways and never scrolls vertically,
+                    // MIRACLO: the ColorOS layout pages sideways and never scrolls vertically,
                     // so a swipe up always reaches the shade and collapses QS.
                     if (miracloNoVerticalScroll()) return isCustomizing
-                    // MiraCLO: a swipe up moves down the iOS pages; on the last page it collapses.
+                    // MIRACLO: a swipe up moves down the iOS pages; on the last page it collapses.
                     if (miracloIosPages() && viewModel.isQsFullyExpanded &&
                         miracloIos.page < MiraCLOIosState.PAGES - 1
                     ) {
@@ -438,17 +438,17 @@ constructor(
 
     @Composable
     private fun Content(modifier: Modifier = Modifier) {
-        // MiraCLO: with refraction, Quick Settings always uses the dark glass.
+        // MIRACLO: with refraction, Quick Settings always uses the dark glass.
         PlatformTheme(
             isDarkTheme =
                 if (miracloRefraction) true
                 else if (notificationShadeBlur()) isSystemInDarkTheme()
                 else true
         ) {
-            // MiraCLO: refraction belongs to the iOS glass only, and only on a dark panel; the
+            // MIRACLO: refraction belongs to the iOS glass only, and only on a dark panel; the
             // other looks draw their own frost, edge and glow behind the content.
             val miracloDarkPanel = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-            // MiraCLO: lets the tiles know which Quick Settings style and look are on.
+            // MIRACLO: lets the tiles know which Quick Settings style and look are on.
             CompositionLocalProvider(
                 LocalMiraCLOQsStyle provides miracloQsStyle,
                 LocalMiraCLOLook provides miracloLook,
@@ -463,7 +463,7 @@ constructor(
                 LocalMiraCLOTileSize provides
                     (if (!miracloQsStyle && miracloTileSize > 0) miracloTileSize.dp else null),
             ) {
-                // MiraCLO: each look lays its own tint over the shade blur as QS expands: clear
+                // MIRACLO: each look lays its own tint over the shade blur as QS expands: clear
                 // glass for iOS, a dark frost for ColorOS, the wallpaper tint for One UI, and an
                 // opaque panel when Liquid Glass is off (QQS and notifications untouched).
                 val miracloTint =
@@ -472,7 +472,7 @@ constructor(
                     } else {
                         null
                     }
-                // MiraCLO split shade: a pull from the notifications side hides Quick Settings;
+                // MIRACLO split shade: a pull from the notifications side hides Quick Settings;
                 // a pull from its own side fades it back in.
                 val miracloQsAlpha by
                     animateFloatAsState(
@@ -560,7 +560,7 @@ constructor(
                 transitions =
                     transitions {
                         from(QuickQuickSettings, QuickSettings) {
-                            // MiraCLO: the ColorOS layout puts tiles in different places and
+                            // MIRACLO: the ColorOS layout puts tiles in different places and
                             // shapes than QQS, so morphing each tile across makes them fly over
                             // each other. There, QQS fades out and the panel fades/slides in.
                             quickQuickSettingsToQuickSettings {
@@ -715,7 +715,7 @@ constructor(
     }
 
     override fun isCustomizing(): Boolean {
-        // MiraCLO: our own editor counts as customizing, so Back and the shade close it.
+        // MIRACLO: our own editor counts as customizing, so Back and the shade close it.
         return viewModel.isEditing || miracloEditor.editing
     }
 
@@ -1073,7 +1073,7 @@ constructor(
                                 .onSizeChanged { viewModel.qsScrollHeight = it.height }
                                 .verticalScroll(
                                     scrollState,
-                                    // MiraCLO: portrait ColorOS layout fits the screen and must
+                                    // MIRACLO: portrait ColorOS layout fits the screen and must
                                     // not scroll; landscape is too short, so it scrolls.
                                     enabled =
                                         !miracloQsStyle ||
@@ -1084,7 +1084,7 @@ constructor(
                                 .sysuiResTag(ResIdTags.qsScroll)
                     ) {
                         val containerViewModel = viewModel.containerViewModel
-                        // MiraCLO: the looks put their header where the mocks do, measured from the
+                        // MIRACLO: the looks put their header where the mocks do, measured from the
                         // top of the screen; the stock header steps aside for them.
                         val miracloTopPx =
                             with(LocalDensity.current) {
@@ -1191,7 +1191,7 @@ constructor(
                                     )
                         ) {
                             if (miracloQsStyle) {
-                                // MiraCLO: the looks are drawn at the size of the 390dp-wide
+                                // MIRACLO: the looks are drawn at the size of the 390dp-wide
                                 // mocks and scaled to this screen, so every proportion matches.
                                 val density = LocalDensity.current
                                 val scale = miracloScale()
@@ -1250,7 +1250,7 @@ constructor(
                                                 miracloMediaSessions.current != null,
                                         mediaHost = { hostModifier ->
                                             // The stock QS media host stays in the slot, hidden
-                                            // under the MiraCLO card, so the stock media
+                                            // under the MIRACLO card, so the stock media
                                             // animation from QQS lands here instead of flying
                                             // off to the top of the screen.
                                             if (viewModel.qsMediaVisible) {
@@ -1320,7 +1320,7 @@ constructor(
                         }
                     }
                 }
-                // MiraCLO: the MiraCLO looks carry their buttons in their own header.
+                // MIRACLO: the MIRACLO looks carry their buttons in their own header.
                 if (!miracloQsStyle) {
                     QuickSettingsTheme {
                         Element(
@@ -1916,7 +1916,7 @@ private fun AlwaysDarkMode(content: @Composable () -> Unit) {
 }
 
 /**
- * MiraCLO split shade: Quick Settings opens on its own, so the collapsed row of tiles is never
+ * MIRACLO split shade: Quick Settings opens on its own, so the collapsed row of tiles is never
  * shown. Quick Settings fades in as it expands and out as it closes, instead of morphing from
  * and into that row.
  */
@@ -1925,12 +1925,12 @@ private fun miracloSplitFade(progress: Float): Float =
     else if (MiraCLOSplitShade.notificationsOnly) 0f
     else ((progress - 0.15f) / 0.6f).coerceIn(0f, 1f)
 
-/** MiraCLO: the solid dark shade behind the ColorOS QS when Liquid Glass is off. */
+/** MIRACLO: the solid dark shade behind the ColorOS QS when Liquid Glass is off. */
 
-/** MiraCLO: Settings.Secure key for the ColorOS-style Quick Settings layout (0 = off, 1 = on). */
+/** MIRACLO: Settings.Secure key for the ColorOS-style Quick Settings layout (0 = off, 1 = on). */
 private const val MIRACLO_QS_STYLE = "miraclo_qs_style"
 
-/** MiraCLO: Settings.Secure key for Liquid Glass (Settings > Display), 0 = off, 1 = on. */
+/** MIRACLO: Settings.Secure key for Liquid Glass (Settings > Display), 0 = off, 1 = on. */
 private const val MIRACLO_QS_ROUND_TILES = "miraclo_qs_round_tiles"
 private const val MIRACLO_QS_TILE_SIZE = "miraclo_qs_tile_size"
 private const val MIRACLO_LIQUID_GLASS = "miraclo_liquid_glass"

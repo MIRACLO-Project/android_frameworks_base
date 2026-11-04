@@ -179,7 +179,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     private final MetricsLogger mMetricsLogger;
     private final Resources mResources;
     private boolean mMiracloPanelExpanded;
-    /** MiraCLO split shade: keeps notifications out of view while Quick Settings shows. */
+    /** MIRACLO split shade: keeps notifications out of view while Quick Settings shows. */
     private final MiraCLOShadePanels mMiracloPanels = new MiraCLOShadePanels(this::miracloStackView);
 
     /** The notification stack, read only once a pull starts (the field is set in the constructor). */
@@ -623,7 +623,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                         MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(
                         MotionEvent.BUTTON_TERTIARY));
 
-        // MiraCLO split shade: one finger down on the Quick Settings side opens Quick Settings.
+        // MIRACLO split shade: one finger down on the Quick Settings side opens Quick Settings.
         final boolean miracloQsSide = action == MotionEvent.ACTION_DOWN && pointerCount == 1
                 && MiraCLOSplitShade.isEnabled(mQsFrame.getContext())
                 && MiraCLOSplitShade.isQsSide(mQsFrame.getContext(), event.getX(),
@@ -639,7 +639,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
 
     @Override
     public void setPanelExpanded(boolean panelExpanded) {
-        // MiraCLO split shade: forget "notifications only" once the shade has closed again.
+        // MIRACLO split shade: forget "notifications only" once the shade has closed again.
         if (mMiracloPanelExpanded && !panelExpanded) {
             MiraCLOSplitShade.showQuickSettings();
             mMiracloPanels.onClosed();
@@ -747,14 +747,14 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         mShadeTouchableRegionManager.updateRegionForNotch(mInterceptRegion);
         final boolean onHeader = mInterceptRegion.contains((int) x, (int) y);
 
-        // MiraCLO split shade: while only notifications show, Quick Settings opens only from
+        // MIRACLO split shade: while only notifications show, Quick Settings opens only from
         // its own side of the header.
         if (MiraCLOSplitShade.isNotificationsOnly()) {
             return onHeader && MiraCLOSplitShade.isQsSide(mQsFrame.getContext(), x,
                     mResources.getDisplayMetrics().widthPixels);
         }
 
-        // MiraCLO split shade: Quick Settings shows on its own, so a swipe up closes the whole
+        // MIRACLO split shade: Quick Settings shows on its own, so a swipe up closes the whole
         // shade (the panel slides away) instead of first shrinking Quick Settings to its row of
         // quick tiles, which left an empty strip during the animation.
         if (getExpanded() && !mSplitShadeEnabled
@@ -770,7 +770,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     }
 
     /**
-     * MiraCLO split shade: opens the shade on one side without a touch (the expand commands, a
+     * MIRACLO split shade: opens the shade on one side without a touch (the expand commands, a
      * tile or an app asking for Quick Settings or notifications).
      */
     public void miracloOpenSide(boolean quickSettings) {
@@ -1500,7 +1500,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                     (float) (getMaxExpansionHeight()), computeExpansionFraction());
             return topPadding;
         } else if (MiraCLOSplitShade.isNotificationsOnly()) {
-            // MiraCLO split shade: notifications only. Quick Settings (Quick Quick Settings
+            // MIRACLO split shade: notifications only. Quick Settings (Quick Quick Settings
             // included) is hidden, so the list starts right under the shade header row instead
             // of under the space the hidden tiles would take.
             return mQuickQsHeaderHeight;
@@ -1763,7 +1763,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         if (action == MotionEvent.ACTION_DOWN && isFullyCollapsed && isExpansionEnabled()) {
             mTwoFingerExpandPossible = true;
         }
-        // MiraCLO: any pull that starts with the shade closed picks its side, including the
+        // MIRACLO: any pull that starts with the shade closed picks its side, including the
         // pulls the launcher forwards from the home screen (they don't start on the status bar).
         if (action == MotionEvent.ACTION_DOWN && isFullyCollapsed) {
             MiraCLOSplitShade.onPullStarted(mQsFrame.getContext(), event.getX(),
@@ -2090,7 +2090,7 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                 mPanelViewControllerLazy.get().notifyExpandingFinished();
                 mNotificationStackScrollLayoutController.resetCheckSnoozeLeavebehind();
                 mExpansionAnimator = null;
-                // MiraCLO split shade: Quick Settings is shown on its own, so collapsing it
+                // MIRACLO split shade: Quick Settings is shown on its own, so collapsing it
                 // (a swipe up) closes the shade instead of leaving an empty panel.
                 if (type == FLING_COLLAPSE && !mIsCanceled
                         && !mSplitShadeEnabled && !MiraCLOSplitShade.isNotificationsOnly()) {

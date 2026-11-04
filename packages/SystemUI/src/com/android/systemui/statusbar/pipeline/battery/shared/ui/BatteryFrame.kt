@@ -41,7 +41,7 @@ object BatteryFrame {
         )
 
     /**
-     * MiraCLO: the battery shape of the status bar icon style (0 Android 17, 1 ColorOS, 2 iOS,
+     * MIRACLO: the battery shape of the status bar icon style (0 Android 17, 1 ColorOS, 2 iOS,
      * 3 One UI), set from System UI's resources (the style's overlay). Read while measuring and
      * drawing, so a change redraws every battery.
      */

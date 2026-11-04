@@ -378,7 +378,7 @@ fun ContentScope.OverlayShadeHeader(
     showClock: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    // MiraCLO: without chip backgrounds, chip text and icons use the normal shade colours so
+    // MIRACLO: without chip backgrounds, chip text and icons use the normal shade colours so
     // they stay readable (a "strong" chip's colours are made for its own background).
     val miracloContext = LocalContext.current
     remember { MiraCLOShadeChips.watch(miracloContext) }

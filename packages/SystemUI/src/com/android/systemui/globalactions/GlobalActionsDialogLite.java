@@ -602,7 +602,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         mHandler.sendEmptyMessage(MESSAGE_DISMISS);
     }
 
-    // MiraCLO: Liquid Glass power menu (Settings > Display > Liquid Glass > Power menu).
+    // MIRACLO: Liquid Glass power menu (Settings > Display > Liquid Glass > Power menu).
     private boolean mMiraCLOGlass;
 
     private void handleShow(@Nullable Expandable expandable, int displayId) {
@@ -787,7 +787,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             }
         }
 
-        // MiraCLO: the power menu holds Emergency, Power off, Restart and Advanced only
+        // MIRACLO: the power menu holds Emergency, Power off, Restart and Advanced only
         // (Advanced: Restart System UI, Reboot to recovery, Reboot to bootloader).
         List<Action> miracloActions = new ArrayList<>();
         for (Action a : tempActions) {
@@ -1145,7 +1145,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         }
     }
 
-    /** MiraCLO: opens Restart System UI, Reboot to recovery and Reboot to bootloader. */
+    /** MIRACLO: opens Restart System UI, Reboot to recovery and Reboot to bootloader. */
     final class MiraCLOAdvancedAction extends SinglePressAction {
         MiraCLOAdvancedAction() {
             super(com.android.systemui.res.R.drawable.ic_miraclo_power_advanced, null,
@@ -2117,7 +2117,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             messageView.setSelected(true); // necessary for marquee to work
             mIconView.setImageDrawable(getIcon(context));
             mIconView.setScaleType(ScaleType.CENTER_CROP);
-            // MiraCLO: slightly smaller icons inside the buttons
+            // MIRACLO: slightly smaller icons inside the buttons
             final int miracloInset =
                     (int) (4 * context.getResources().getDisplayMetrics().density);
             mIconView.setPadding(mIconView.getPaddingLeft() + miracloInset,
@@ -3223,7 +3223,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         }
     }
 
-    /** MiraCLO: whether the power menu is shown in the dark theme. */
+    /** MIRACLO: whether the power menu is shown in the dark theme. */
     static boolean miracloIsDark(Context context) {
         return (context.getResources().getConfiguration().uiMode
                 & android.content.res.Configuration.UI_MODE_NIGHT_MASK)

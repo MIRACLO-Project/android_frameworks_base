@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -90,7 +90,7 @@ import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
 import com.android.systemui.res.R
 import kotlinx.coroutines.launch
 
-/** Tile specs that MiraCLO pins to the fixed wide slots, in order of preference. */
+/** Tile specs that MIRACLO pins to the fixed wide slots, in order of preference. */
 private val MIRACLO_WIFI_SPECS = listOf("internet", "wifi")
 private val MIRACLO_BT_SPECS = listOf("bt", "bluetooth")
 
@@ -106,7 +106,7 @@ private const val MIRACLO_FULL_THRESHOLD = 0.995f
 internal val MiraCLOMediaShape = RoundedCornerShape(32.dp)
 
 /**
- * MiraCLO (ColorOS 17 style) expanded Quick Settings.
+ * MIRACLO (ColorOS 17 style) expanded Quick Settings.
  *
  * ```
  * [ Wi-Fi         ][ Bluetooth     ]
@@ -175,7 +175,7 @@ internal fun ContentScope.MiraCLOQuickSettingsLayout(
                             if (showMedia) Modifier
                             else Modifier.glassSurface(glass, MiraCLOMediaShape)
                         )
-                        // MiraCLO Liquid Glass glow: a faint light in the card's bottom corner.
+                        // MIRACLO Liquid Glass glow: a faint light in the card's bottom corner.
                         .miracloCornerGlow(glass.liquid && LocalMiraCLOGlow.current),
                 contentAlignment = Alignment.Center,
             ) {
@@ -303,7 +303,7 @@ internal fun MiraCLOMyDevices(
     }
 }
 
-/** Colours shared by the MiraCLO glass cards, matching the tile glass in Tile.kt. */
+/** Colours shared by the MIRACLO glass cards, matching the tile glass in Tile.kt. */
 internal data class MiraCLOGlass(
     val fill: Color,
     val iconOff: Color,
@@ -416,7 +416,7 @@ private fun MiraCLOVerticalSlider(
                         dragging = true
                         down.consume()
                         val start = local
-                        // MiraCLO: tall sliders fill upwards, wide ones (4x1) left to right.
+                        // MIRACLO: tall sliders fill upwards, wide ones (4x1) left to right.
                         val length =
                             (if (vertical) size.height else size.width).coerceAtLeast(1)
                         while (true) {
@@ -464,7 +464,7 @@ private fun MiraCLOVerticalSlider(
                         .background(Color.White)
                 }
         )
-        // MiraCLO: the looks use their own glyphs (ColorOS: a grey sun and blue headphones; the
+        // MIRACLO: the looks use their own glyphs (ColorOS: a grey sun and blue headphones; the
         // icon sits on the white fill, or on the glass when the level is low).
         if (vector != null && glass.look != MiraCLOLook.ONEUI) {
             Icon(

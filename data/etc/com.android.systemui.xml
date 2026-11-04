@@ -16,7 +16,7 @@
   -->
 <permissions>
     <privapp-permissions package="com.android.systemui">
-        <!-- MiraCLO: power menu > Advanced > Reboot to recovery / bootloader -->
+        <!-- MIRACLO: power menu > Advanced > Reboot to recovery / bootloader -->
         <permission name="android.permission.REBOOT"/>
         <permission name="android.permission.RECOVERY"/>
         <permission name="android.permission.CAPTURE_AUDIO_OUTPUT"/>

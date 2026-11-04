@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.util.Collections
 import java.util.WeakHashMap
 
 /**
- * One place that knows where the MiraCLO Liquid Glass look is on. Settings > Display >
+ * One place that knows where the MIRACLO Liquid Glass look is on. Settings > Display >
  * Liquid Glass has a main switch ([KEY]) and one switch per place (off by default); a place
  * is glass when both are on. Main thread only.
  */

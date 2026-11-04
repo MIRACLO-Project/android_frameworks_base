@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ import com.android.systemui.animation.Expandable as SysuiExpandable
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.MiraCLOLook
 import kotlinx.coroutines.delay
 
-/** Icons for the MiraCLO Quick Settings headers, from the Material icon set (Apache 2.0). */
+/** Icons for the MIRACLO Quick Settings headers, from the Material icon set (Apache 2.0). */
 internal object MiraCLOIcons {
     val Edit =
         icon(
@@ -183,7 +183,7 @@ private fun miracloCarrier(): String {
 }
 
 /**
- * The header each MiraCLO look draws at the top of Quick Settings, in place of the stock shade
+ * The header each MIRACLO look draws at the top of Quick Settings, in place of the stock shade
  * header and footer. Its height is fixed so the controls start exactly where the mocks put them:
  * - ColorOS: edit and settings circles (36dp) at the edges, the carrier name underneath.
  * - iOS: add and power circles (34dp), the carrier name underneath.

@@ -56,7 +56,7 @@ constructor(
                             !ActivityManager.isUserAMonkey() &&
                                 input.data is FlashlightModel.Available
                         ) {
-                            // MiraCLO: a flash with a single brightness level has no strength
+                            // MIRACLO: a flash with a single brightness level has no strength
                             // dialog, and round tiles have no separate toggle, so a tap toggles.
                             flashlightInteractor.get().setEnabled(!input.data.enabled)
                         }

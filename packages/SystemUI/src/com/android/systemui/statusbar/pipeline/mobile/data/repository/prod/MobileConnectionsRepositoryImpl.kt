@@ -305,7 +305,7 @@ constructor(
             .onEach { logger.logActionCarrierConfigChanged() }
 
     override val defaultDataSubRatConfig: StateFlow<Config?> =
-        // MiraCLO: Mira Studio's network label and call badges are applied on top, and a change to
+        // MIRACLO: Mira Studio's network label and call badges are applied on top, and a change to
         // them rebuilds the config.
         merge(
                 defaultDataSubId,

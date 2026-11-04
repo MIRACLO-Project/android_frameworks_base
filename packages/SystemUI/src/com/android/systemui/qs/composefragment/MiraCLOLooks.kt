@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: MiraCLO
+ * SPDX-FileCopyrightText: MIRACLO
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -133,7 +133,7 @@ internal class MiraCLOLayoutStore(context: Context) {
 }
 
 /**
- * The body of the MiraCLO Quick Settings in the classic shade, for the selected look:
+ * The body of the MIRACLO Quick Settings in the classic shade, for the selected look:
  * - ColorOS 17: the classic ColorOS layout, or the editable grid once it has been edited.
  * - iOS 27: the editable Control Center grid.
  * - One UI 9: the One UI Quick Panel.
@@ -255,7 +255,7 @@ internal fun miracloSideMargin(look: Int): Int =
         else -> 38
     }
 
-/** Opens the MiraCLO editor on the saved layout of [look], or on its default layout. */
+/** Opens the MIRACLO editor on the saved layout of [look], or on its default layout. */
 internal fun miracloStartEdit(
     look: Int,
     store: MiraCLOLayoutStore,
@@ -288,7 +288,7 @@ internal fun miracloPanelTint(look: Int, liquid: Boolean, dark: Boolean): Color 
             else Color(if (liquid) 0x40F0F2F7 else 0xE6F0F2F7.toInt())
     }
 
-/** Tiles that cannot do anything on this device are left out of the MiraCLO looks. */
+/** Tiles that cannot do anything on this device are left out of the MIRACLO looks. */
 private val MIRACLO_HIDE_WHEN_UNAVAILABLE = setOf("wallet", "controls")
 
 internal fun List<TileViewModel>.miracloUsable(): List<TileViewModel> = filterNot {

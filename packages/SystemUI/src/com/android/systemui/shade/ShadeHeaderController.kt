@@ -243,7 +243,7 @@ constructor(
             miracloUpdateClock()
         }
 
-    /** MiraCLO: the MiraCLO looks draw their own header, so the stock one steps aside. */
+    /** MIRACLO: the MIRACLO looks draw their own header, so the stock one steps aside. */
     private fun miracloUpdateClock() {
         if (MiraCLOSplitShade.hideHeader()) header.alpha = 0f
     }

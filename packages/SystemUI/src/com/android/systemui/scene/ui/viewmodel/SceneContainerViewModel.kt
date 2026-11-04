@@ -550,7 +550,7 @@ constructor(
     }
 
     private fun showDebuggingToast(text: String) {
-        // MiraCLO: a developer toast. Our builds are userdebug, so it showed to everyone; now it
+        // MIRACLO: a developer toast. Our builds are userdebug, so it showed to everyone; now it
         // only shows when asked for (adb shell setprop persist.sysui.miraclo.falsing_toast 1).
         if (!Build.IS_ENG && !Build.IS_USERDEBUG) {
             return

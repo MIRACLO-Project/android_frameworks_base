@@ -137,14 +137,14 @@ import platform.test.motion.compose.values.motionTestValues
 private val TileViewModel.traceName
     get() = spec.toString().takeLast(Trace.MAX_SECTION_NAME_LEN)
 
-/** MiraCLO: ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
+/** MIRACLO: ColorOS-style Quick Settings (glass tiles, round icon tiles with labels below). */
 internal val LocalMiraCLOQsStyle = compositionLocalOf { false }
 
-/** MiraCLO: Liquid Glass (Settings > Display): clearer glass with a bright specular edge. */
+/** MIRACLO: Liquid Glass (Settings > Display): clearer glass with a bright specular edge. */
 internal val LocalMiraCLOLiquidGlass = compositionLocalOf { false }
 
 /**
- * MiraCLO Quick Settings looks, the values of Settings.Secure "miraclo_qs_style" (Settings >
+ * MIRACLO Quick Settings looks, the values of Settings.Secure "miraclo_qs_style" (Settings >
  * Display > Quick Settings style). Each look has its own tile colours and shapes.
  */
 internal object MiraCLOLook {
@@ -153,26 +153,26 @@ internal object MiraCLOLook {
     const val ONEUI = 4
 }
 
-/** MiraCLO: the Quick Settings look in use (see [MiraCLOLook]). */
+/** MIRACLO: the Quick Settings look in use (see [MiraCLOLook]). */
 internal val LocalMiraCLOLook = compositionLocalOf { MiraCLOLook.COLOROS }
 
 /**
- * MiraCLO: stock Quick Settings with round tiles (Mira Studio > Quick Settings > Round tiles).
+ * MIRACLO: stock Quick Settings with round tiles (Mira Studio > Quick Settings > Round tiles).
  * Small tiles become circles and large tiles become pills.
  */
 internal val LocalMiraCLORoundTiles = compositionLocalOf { false }
 
-/** MiraCLO: stock tile height chosen in Mira Studio, or null for the stock size. */
+/** MIRACLO: stock tile height chosen in Mira Studio, or null for the stock size. */
 internal val LocalMiraCLOTileSize = compositionLocalOf<Dp?> { null }
 
-/** MiraCLO: round tiles without the label underneath (iOS look, connectivity block). */
+/** MIRACLO: round tiles without the label underneath (iOS look, connectivity block). */
 internal val LocalMiraCLOHideTileLabels = compositionLocalOf { false }
 
-/** MiraCLO: round tiles show their label and state underneath (the iOS connectivity module). */
+/** MIRACLO: round tiles show their label and state underneath (the iOS connectivity module). */
 internal val LocalMiraCLOTileDetails = compositionLocalOf { false }
 
 /**
- * MiraCLO: the look of a real QS tile inside a MiraCLO QS style (from the approved mocks). Only the
+ * MIRACLO: the look of a real QS tile inside a MIRACLO QS style (from the approved mocks). Only the
  * drawing changes; clicks, long-press, dialogs, haptics and accessibility stay the stock tile's.
  */
 data class MiraTileSkin(
@@ -195,10 +195,10 @@ data class MiraTileSkin(
     val bubbleInset: Dp = 0.dp,
 )
 
-/** MiraCLO skins: the large tile's icon bubble is a circle. */
+/** MIRACLO skins: the large tile's icon bubble is a circle. */
 private val MiraSkinBubbleShape = RoundedCornerShape(percent = 50)
 
-/** Set by a MiraCLO QS style around each tile it places. */
+/** Set by a MIRACLO QS style around each tile it places. */
 val LocalMiraTileSkin = compositionLocalOf<MiraTileSkin?> { null }
 
 /** iOS-style system colours. */
@@ -231,7 +231,7 @@ internal val MiraCLOLiquidHighlight =
         0.5f to Color.Transparent,
     )
 
-/** Glass rim of MiraCLO tiles. Created once instead of on every frame of the QS animation. */
+/** Glass rim of MIRACLO tiles. Created once instead of on every frame of the QS animation. */
 private val MiraCLOTileRim =
     Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.04f)))
 
@@ -250,7 +250,7 @@ private fun miracloColorOSAccent(spec: String): Color =
         else -> Color(0xFF1A7CFF)
     }
 
-/** MiraCLO: solid tile colour of the dark QS without Liquid Glass. */
+/** MIRACLO: solid tile colour of the dark QS without Liquid Glass. */
 internal val MiraCLOSolidTile = Color(0xFF1E1F23)
 private val MiraCLOSolidBubble = Color(0xFF2C2D32)
 
@@ -311,7 +311,7 @@ fun ContentScope.Tile(
 
         val miracloStyle = LocalMiraCLOQsStyle.current
         val liquidGlass = LocalMiraCLOLiquidGlass.current
-        // MiraCLO: the refracting lens is kept for the large iOS blocks; on every small tile it
+        // MIRACLO: the refracting lens is kept for the large iOS blocks; on every small tile it
         // turned the wallpaper into blobs, so tiles use the frosted glass instead.
         val miracloRefraction = false
         val miracloLightPanel = MaterialTheme.colorScheme.surface.luminance() >= 0.5f
@@ -338,11 +338,11 @@ fun ContentScope.Tile(
         // TODO(b/361789146): Draw the shapes instead of clipping
         val stockShape by TileDefaults.animateTileShapeAsState(uiState)
         val tileShape = miraSkin?.shape ?: stockShape
-        // MiraCLO: SurfaceFlinger draws the refracting glass behind see-through tiles.
+        // MIRACLO: SurfaceFlinger draws the refracting glass behind see-through tiles.
         val refractionModifier =
             Modifier.miracloRefraction(
                 tileShape, miracloRefraction && colors.background.alpha < 0.99f)
-        // MiraCLO style: icon-only tiles are drawn as perfect circles.
+        // MIRACLO style: icon-only tiles are drawn as perfect circles.
         val miracloRoundTile = (miracloStyle || LocalMiraCLORoundTiles.current) && iconOnly
         val animatedColor by animateColorAsState(colors.background, label = "QSTileBackgroundColor")
         val isDualTarget = uiState.handlesToggleClick
@@ -395,7 +395,7 @@ fun ContentScope.Tile(
                 hapticsViewModel = hapticsViewModel,
                 modifier =
                     modifier
-                        // MiraCLO: keep round tiles square, centred in the full grid slot.
+                        // MIRACLO: keep round tiles square, centred in the full grid slot.
                         .thenIf(miracloRoundTile) {
                             Modifier.fillMaxWidth()
                                 .height(roundTileSize)
@@ -591,7 +591,7 @@ fun ContentScope.Tile(
     }
 }
 
-/** MiraCLO: a round icon tile with its label underneath, as in the ColorOS layout. */
+/** MIRACLO: a round icon tile with its label underneath, as in the ColorOS layout. */
 @Composable
 private fun MiraCLOLabeledIconTile(
     label: String,
@@ -890,7 +890,7 @@ private object TileDefaults {
     }
 
     /**
-     * MiraCLO style, modelled on ColorOS: translucent "glass" tiles that let the shade blur show
+     * MIRACLO style, modelled on ColorOS: translucent "glass" tiles that let the shade blur show
      * through. On a dark panel an active tile shows a white bubble with a coloured icon; on a
      * light panel the bubble is filled with the colour and the icon is white. Mobile data uses
      * green, everything else blue.
@@ -1058,7 +1058,7 @@ private object TileDefaults {
 
     @Composable
     fun tileRadius(uiState: TileUiState): Dp {
-        // MiraCLO: every look, and stock with round tiles, uses circles and pills.
+        // MIRACLO: every look, and stock with round tiles, uses circles and pills.
         if (LocalMiraCLOQsStyle.current || LocalMiraCLORoundTiles.current) {
             return TileHeight / 2
         }

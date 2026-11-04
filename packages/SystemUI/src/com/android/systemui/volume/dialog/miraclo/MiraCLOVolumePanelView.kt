@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * The MiraCLO volume panel, in the style of the One UI one: a slim pill at the screen edge
+ * The MIRACLO volume panel, in the style of the One UI one: a slim pill at the screen edge
  * (ringer mode, the stream being changed, more) that opens into a card with every stream,
  * the sound mode, sound settings and the media output. Drawn in code, like the island.
  *

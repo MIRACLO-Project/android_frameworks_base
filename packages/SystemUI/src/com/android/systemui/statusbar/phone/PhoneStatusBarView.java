@@ -80,7 +80,7 @@ public class PhoneStatusBarView extends FrameLayout {
      */
     private int mCutoutSideNudge = 0;
 
-    /** MiraCLO: the Dynamic Island's pills appeared, changed or left. */
+    /** MIRACLO: the Dynamic Island's pills appeared, changed or left. */
     private final Runnable mIslandSpaceListener = this::applyIslandMode;
     private int mIslandMode = IslandStatusBarSpace.NONE;
     private boolean mIslandActive;
@@ -380,7 +380,7 @@ public class PhoneStatusBarView extends FrameLayout {
     }
 
     /**
-     * MiraCLO: while Dynamic Island pills show, keep only the clock on the left and the battery
+     * MIRACLO: while Dynamic Island pills show, keep only the clock on the left and the battery
      * (plus one network icon beside a lone main pill) on the right. Everything else fades out
      * where it is, so nothing slides under a pill; it all fades back when the pills go.
      */

@@ -165,7 +165,7 @@ constructor(
     private val dumpableName = TAG + nameSuffix
     private val commandName = StatusBarInsetsCommand.NAME + nameSuffix
 
-    // MiraCLO: user side padding (Mira Studio › Top Bar › Icons) reloads the insets live.
+    // MIRACLO: user side padding (Mira Studio › Top Bar › Icons) reloads the insets live.
     private val miracloPadObserver =
         object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) = clearCachedInsets()
@@ -346,7 +346,7 @@ constructor(
                 rotatedResources.getDimensionPixelSize(R.dimen.ongoing_appops_dot_diameter)
             else 0
 
-        // MiraCLO: both sides use the same base, so the clock and the battery sit at the same
+        // MIRACLO: both sides use the same base, so the clock and the battery sit at the same
         // distance from the screen edges. The vendor sets the corner padding to 0, so the
         // panel's real value (17 dp) is the floor. The user can move each side in Mira Studio.
         val density = rotatedResources.displayMetrics.density
@@ -794,6 +794,6 @@ private fun Point.logicalWidth(@Rotation rot: Int): Int {
     }
 }
 
-/** MiraCLO: extra status bar side padding in dp (-12..24), set from Mira Studio. */
+/** MIRACLO: extra status bar side padding in dp (-12..24), set from Mira Studio. */
 const val MIRACLO_PAD_START = "miraclo_sb_pad_start"
 const val MIRACLO_PAD_END = "miraclo_sb_pad_end"

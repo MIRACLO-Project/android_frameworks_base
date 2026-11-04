@@ -166,7 +166,7 @@ constructor(
                 contentViewModelFactory.create(coroutineScope)
             }
         val useBrightnessMirrorInOverlay = useBrightnessMirrorInOverlay()
-        // MiraCLO: the ColorOS brightness slider has no mirror; a stuck mirror would fade the
+        // MIRACLO: the ColorOS brightness slider has no mirror; a stuck mirror would fade the
         // panel and turn its gestures off.
         val quickSettingsContainerViewModel =
             rememberViewModel("QuickSettingsShadeOverlayContainer", key = miracloQs.qsStyle) {
@@ -203,12 +203,12 @@ constructor(
 
         LaunchedEffectWithLifecycle(key1 = Unit) { contentViewModel.detectShadeModeChanges() }
         remember { miracloQs.watch() }
-        // MiraCLO: ColorOS Quick Settings brings its own glass, so the panel is clear with Liquid
+        // MIRACLO: ColorOS Quick Settings brings its own glass, so the panel is clear with Liquid
         // Glass and solid dark without it (as in the old shade).
         // Each look (ColorOS, iOS, Nothing, One UI) tints the panel its own way.
         val miracloPanelColor: Color? = miracloQs.panelColor(isSystemInDarkTheme())
 
-        // MiraCLO: the separate shade draws the Mira Studio style full screen, exactly as the
+        // MIRACLO: the separate shade draws the Mira Studio style full screen, exactly as the
         // approved prototypes, without the status row or the toolbar. The system tile editor
         // (Stock edit) and tile details keep the stock panel.
         val miracloEditing by
@@ -234,7 +234,7 @@ constructor(
             Box(modifier = modifier.graphicsLayer { alpha = contentAlphaFromBrightnessMirror }) {
                 // The shade's open/close gesture is driven by the panel element (it measures
                 // how far a pull has gone against it), so it stays here, full screen and
-                // invisible; the MiraCLO panel draws its own motion from the same progress.
+                // invisible; the MIRACLO panel draws its own motion from the same progress.
                 Box(
                     Modifier.fillMaxSize()
                         .element(QuickSettingsShade.Elements.Panel)
@@ -440,7 +440,7 @@ private fun ContentScope.QuickSettingsContainer(
             }
 
             ShadeBodyState.Default -> if (miracloQs.qsStyle) {
-                // MiraCLO: the ColorOS Quick Settings, with the toolbar (edit, settings, power)
+                // MIRACLO: the ColorOS Quick Settings, with the toolbar (edit, settings, power)
                 // below it like the ColorOS footer.
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -815,5 +815,5 @@ object QuickSettingsShade {
     }
 }
 
-/** MiraCLO: this content scope, so the QS styles can place Android's real tiles in it. */
+/** MIRACLO: this content scope, so the QS styles can place Android's real tiles in it. */
 private fun ContentScope.miracloSelf(): ContentScope = this

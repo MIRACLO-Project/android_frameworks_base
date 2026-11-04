@@ -408,7 +408,7 @@
     <bool name="config_enableNotificationShadeDrag">true</bool>
 
     <!-- Whether to show activity indicators in the status bar -->
-    <!-- MiraCLO: no data activity arrows next to the signal or Wi-Fi -->
+    <!-- MIRACLO: no data activity arrows next to the signal or Wi-Fi -->
     <bool name="config_showActivity">false</bool>
 
     <!-- Whether to show the opportunistic satellite icon. When true, an icon will show to indicate

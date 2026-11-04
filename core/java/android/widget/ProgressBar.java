@@ -293,7 +293,7 @@ public class ProgressBar extends View {
         mNoInvalidate = true;
 
         Drawable progressDrawable = a.getDrawable(R.styleable.ProgressBar_progressDrawable);
-        // MiraCLO: the theme's default horizontal bar is drawn as Material 3 Expressive's wavy
+        // MIRACLO: the theme's default horizontal bar is drawn as Material 3 Expressive's wavy
         // bar (setprop persist.sys.miraclo.wavy_progress false turns it off).
         if (progressDrawable != null && !(this instanceof AbsSeekBar)
                 && a.getResourceId(R.styleable.ProgressBar_progressDrawable, 0)
@@ -303,7 +303,7 @@ public class ProgressBar extends View {
                 progressDrawable =
                         new com.android.internal.widget.MiraWavyProgressDrawable(context);
             } catch (RuntimeException e) {
-                android.util.Log.w("ProgressBar", "MiraCLO: keeping the theme progress bar", e);
+                android.util.Log.w("ProgressBar", "MIRACLO: keeping the theme progress bar", e);
             }
         }
         if (progressDrawable != null) {
@@ -343,7 +343,7 @@ public class ProgressBar extends View {
 
         Drawable indeterminateDrawable = a.getDrawable(
                 R.styleable.ProgressBar_indeterminateDrawable);
-        // MiraCLO: the default indeterminate horizontal bar is a wavy piece travelling along it.
+        // MIRACLO: the default indeterminate horizontal bar is a wavy piece travelling along it.
         if (indeterminateDrawable != null && !(this instanceof AbsSeekBar)
                 && a.getResourceId(R.styleable.ProgressBar_indeterminateDrawable, 0)
                         == R.drawable.progress_indeterminate_horizontal_material
@@ -353,10 +353,10 @@ public class ProgressBar extends View {
                         new com.android.internal.widget.MiraWavyProgressDrawable.Indeterminate(
                                 context);
             } catch (RuntimeException e) {
-                android.util.Log.w("ProgressBar", "MiraCLO: keeping the theme progress bar", e);
+                android.util.Log.w("ProgressBar", "MIRACLO: keeping the theme progress bar", e);
             }
         }
-        // MiraCLO: the default round spinners turn as a wavy arc.
+        // MIRACLO: the default round spinners turn as a wavy arc.
         if (indeterminateDrawable != null && !(this instanceof AbsSeekBar)
                 && com.android.internal.widget.MiraWavyProgressDrawable.isEnabled()) {
             final int spinnerId = a.getResourceId(
@@ -369,7 +369,7 @@ public class ProgressBar extends View {
                             new com.android.internal.widget.MiraWavyProgressDrawable.Spinner(
                                     context);
                 } catch (RuntimeException e) {
-                    android.util.Log.w("ProgressBar", "MiraCLO: keeping the theme spinner", e);
+                    android.util.Log.w("ProgressBar", "MIRACLO: keeping the theme spinner", e);
                 }
             }
         }

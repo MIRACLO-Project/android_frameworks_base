@@ -925,7 +925,7 @@ static void nativeSetBlurRegions(JNIEnv* env, jclass clazz, jlong transactionObj
     float region[17];
     for (int i = 0; i < size; i++) {
         jfloatArray regionArray = (jfloatArray)env->GetObjectArrayElement(regions, i);
-        // MiraCLO Liquid Glass adds refraction, bevel and dispersion after the 14 standard values.
+        // MIRACLO Liquid Glass adds refraction, bevel and dispersion after the 14 standard values.
         const jsize length = env->GetArrayLength(regionArray);
         region[14] = region[15] = region[16] = 0.0f;
         env->GetFloatArrayRegion(regionArray, 0, length >= 17 ? 17 : 14, region);

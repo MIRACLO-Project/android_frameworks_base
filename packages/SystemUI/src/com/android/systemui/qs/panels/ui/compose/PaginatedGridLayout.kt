@@ -88,7 +88,7 @@ constructor(
                 delegateGridLayout.viewModelFactory.create()
             }
 
-        // MiraCLO: the ColorOS style shows every grid tile as a 1-column round tile, so pages
+        // MIRACLO: the ColorOS style shows every grid tile as a 1-column round tile, so pages
         // are plain chunks of rows x columns, with fewer rows so the panel never needs to scroll.
         val miracloStyle = LocalMiraCLOQsStyle.current
         val rows =
@@ -196,7 +196,7 @@ private fun FooterBar(
             editButtonViewModelFactory.create()
         }
 
-    // MiraCLO: the looks only keep the page dots (6dp, 8dp apart); their header has the edit
+    // MIRACLO: the looks only keep the page dots (6dp, 8dp apart); their header has the edit
     // button, and the build number is not part of the design.
     if (LocalMiraCLOQsStyle.current) {
         Row(

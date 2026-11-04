@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2026 MiraCLO
+     Copyright (C) 2026 MIRACLO
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
      limitations under the License.
 -->
 <resources>
-    <!-- MiraCLO volume panel -->
+    <!-- MIRACLO volume panel -->
     <string name="miraclo_volume_panel">Volume</string>
     <string name="miraclo_volume_ringtone">Ringtone</string>
     <string name="miraclo_volume_notifications">Notifications</string>

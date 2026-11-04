@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 MiraCLO
+ * Copyright (C) 2026 MIRACLO
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * MiraCLO: Settings > Display > Status bar chips. When off, the clock and status icons at the
+ * MIRACLO: Settings > Display > Status bar chips. When off, the clock and status icons at the
  * top of the shade have no chip background behind them. Main thread only.
  */
 object MiraCLOShadeChips {

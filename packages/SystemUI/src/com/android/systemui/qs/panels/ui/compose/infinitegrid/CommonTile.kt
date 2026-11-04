@@ -152,7 +152,7 @@ fun LargeTileContent(
                     .thenIf(isDualTarget) {
                         Modifier.borderOnFocus(color = focusBorderColor, iconShape.topEnd)
                     }
-                    // MiraCLO skins draw the bubble on every large tile
+                    // MIRACLO skins draw the bubble on every large tile
                     .thenIf(isDualTarget || alwaysBubble) {
                         Modifier.clip(iconShape).drawBehind { drawRect(animatedBackgroundColor) }
                     }
@@ -483,7 +483,7 @@ object CommonTileDefaults {
         @ReadOnlyComposable
         get() = dimensionResource(id = R.dimen.common_tile_default_start_padding)
 
-    /** MiraCLO: ColorOS style sizes, measured from ColorOS 17. Default style is unchanged. */
+    /** MIRACLO: ColorOS style sizes, measured from ColorOS 17. Default style is unchanged. */
     val MiraCLOColorOSTileHeight = 64.dp
     val MiraCLOColorOSToggleTargetSize = 46.dp
 
@@ -503,7 +503,7 @@ object CommonTileDefaults {
             if (LocalMiraCLOQsStyle.current) MiraCLOColorOSToggleTargetSize
             else
                 LocalMiraCLOTileSize.current?.let { size ->
-                    // MiraCLO: the icon bubble keeps its stock proportion to the tile.
+                    // MIRACLO: the icon bubble keeps its stock proportion to the tile.
                     dimensionResource(id = R.dimen.common_tile_default_toggle_target_size) *
                         (size / dimensionResource(id = R.dimen.common_tile_default_tile_height))
                 } ?: dimensionResource(id = R.dimen.common_tile_default_toggle_target_size)
