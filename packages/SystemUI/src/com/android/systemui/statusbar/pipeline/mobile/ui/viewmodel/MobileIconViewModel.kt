@@ -364,14 +364,16 @@ private class CellularIconViewModel(
                 iconInteractor.imsInfo,
                 iconInteractor.showVolteIcon,
                 iconInteractor.isInService,
-        ) { imsInfo, showVolteIcon, isInService ->
+                com.android.systemui.miraclo.MiraCLOStatusIcons.volteStyle,
+        ) { imsInfo, showVolteIcon, isInService, volteStyle ->
              if (!showVolteIcon) {
                 return@combine 0
             }
             val voiceNetworkType = imsInfo.voiceNetworkType
             val netWorkType = imsInfo.originNetworkType
             if ((imsInfo.voiceCapable || imsInfo.videoCapable) && imsInfo.imsRegistered) {
-                return@combine R.drawable.ic_volte
+                // MiraCLO: "VoLTE" or "HD" (ic_volte is the HD badge)
+                return@combine if (volteStyle == 2) R.drawable.ic_volte else R.drawable.ic_miraclo_volte
             } else if ((netWorkType == TelephonyManager.NETWORK_TYPE_LTE
                         || netWorkType == TelephonyManager.NETWORK_TYPE_LTE_CA)
                 && isInService

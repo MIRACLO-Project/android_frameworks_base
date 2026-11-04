@@ -121,7 +121,10 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
         val glassPills: Boolean = false,
         /** Liquid Glass refraction: SurfaceFlinger bends what is behind the glass and lights its rim. */
         val refraction: Boolean = false,
+        /** Look of the island: [LOOK_IOS] or [LOOK_COLOROS]. Visual only. */
+        val look: Int = LOOK_IOS,
     )
+
 
     /**
      * [pills] by slot: main, right, left. A slot whose activity is open as a card is null, so the
@@ -150,7 +153,10 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
     // Sizes --------------------------------------------------------------------------------------
 
     private val pillW = dp(174).toFloat()
-    private val pillH = dp(34).toFloat()
+    // The pill leaves the same margin all round the camera (marble: hole centre 47 px, 94 px bar),
+    // so it never touches the top edge.
+    private val pillH: Float
+        get() = dp(if (config.look == LOOK_COLOROS) 27 else 28).toFloat()
     private val bubbleGap = dp(6).toFloat()
     private val compactH = dp(84)
     private val compactRadius = dp(30).toFloat()
@@ -247,6 +253,9 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
 
     /** Pills are centred on the status bar icons (clock, battery), around the camera. */
     private fun pillTop(): Float {
+        // Centred on the camera itself, so a taller status bar (Mira Studio) never moves the pill.
+        val cut = context.display?.cutout?.boundingRectTop
+        if (cut != null && !cut.isEmpty) return max(0f, cut.exactCenterY() - pillH / 2f)
         val padTop = resources.getDimensionPixelSize(R.dimen.status_bar_padding_top)
         return max(0f, (statusBarHeight() + padTop) / 2f - pillH / 2f)
     }
@@ -793,8 +802,9 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
             } else {
                 blur?.setLiquidGlass(0f, 0f, 0f)
             }
-            blur?.setBlurRadius(dp(if (glass && config.refraction) 10 else if (glass) 14 else 36))
-            blur?.setColor(if (glass) 0x4D10131C else 0x8C141519.toInt())
+            // Without Liquid Glass the island is solid black like the originals: no frosted blur.
+            blur?.setBlurRadius(if (glass) dp(if (config.refraction) 10 else 14) else 0)
+            blur?.setColor(if (glass) 0x4D10131C else 0xFF000000.toInt())
             if (width > 0) updateRimShaders(width, height)
             invalidate()
         }
@@ -1005,9 +1015,10 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
             translationX = g.x - left + dragX
             translationY = g.y - top + dragY
             clip.set(0f, 0f, g.w, g.h)
-            elevation = dp(14) * g.c
+            // Expanded only: the originals' soft shadow (no glow). iOS a little deeper than ColorOS.
+            elevation = dp(if (config.look == LOOK_COLOROS) 8 else 10) * g.c
             // Shadows only for cards (translationZ orders the stack but must not shade the pills).
-            val shadow = Color.argb((255 * g.c).toInt().coerceIn(0, 255), 0, 0, 0)
+            val shadow = Color.argb((255 * 0.3f * g.c).toInt().coerceIn(0, 255), 0, 0, 0)
             outlineSpotShadowColor = shadow
             outlineAmbientShadowColor = shadow
             content.view.alpha = smooth(g.c, 0.55f, 1f)
@@ -2345,6 +2356,11 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
     }
 
     companion object {
+        /** Pure black, 28 dp pill, card shadow 10 dp; as on iOS. */
+        const val LOOK_IOS = 0
+        /** Pure black, slimmer 27 dp capsule, card shadow 8 dp; as ColorOS Fluid Cloud. */
+        const val LOOK_COLOROS = 1
+
         private const val NONE = 0
         private const val SIDEWAYS = 1
         private const val UP = 2

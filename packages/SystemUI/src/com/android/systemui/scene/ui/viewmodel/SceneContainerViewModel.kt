@@ -246,6 +246,7 @@ constructor(
      * Call this before the [MotionEvent] starts to propagate through the UI hierarchy.
      */
     fun onMotionEvent(event: MotionEvent) {
+        com.android.systemui.miraclo.MiraCLOShadeTouch.onEvent(event)
         powerInteractor.onUserTouch()
         falsingInteractor.onTouchEvent(event)
         if (
@@ -549,7 +550,12 @@ constructor(
     }
 
     private fun showDebuggingToast(text: String) {
+        // MiraCLO: a developer toast. Our builds are userdebug, so it showed to everyone; now it
+        // only shows when asked for (adb shell setprop persist.sysui.miraclo.falsing_toast 1).
         if (!Build.IS_ENG && !Build.IS_USERDEBUG) {
+            return
+        }
+        if (!android.os.SystemProperties.getBoolean("persist.sysui.miraclo.falsing_toast", false)) {
             return
         }
 

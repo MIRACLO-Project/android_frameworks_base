@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -59,7 +60,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.onLayoutRectChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
@@ -125,6 +130,7 @@ import dagger.Lazy
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 
 @SysUISingleton
 class QuickSettingsShadeOverlay
@@ -201,6 +207,101 @@ constructor(
         // Glass and solid dark without it (as in the old shade).
         // Each look (ColorOS, iOS, Nothing, One UI) tints the panel its own way.
         val miracloPanelColor: Color? = miracloQs.panelColor(isSystemInDarkTheme())
+
+        // MiraCLO: the separate shade draws the Mira Studio style full screen, exactly as the
+        // approved prototypes, without the status row or the toolbar. The system tile editor
+        // (Stock edit) and tile details keep the stock panel.
+        val miracloEditing by
+            quickSettingsContainerViewModel.editModeViewModel.isEditing.collectAsStateWithLifecycle()
+        val miracloDetails =
+            QsDetailedView.isEnabled &&
+                quickSettingsContainerViewModel.detailsViewModel.activeTileDetails != null
+        // A style's own editor stays in the style (Android's editor runs underneath it).
+        if ((!miracloEditing || miracloQs.styledEdit.value) && !miracloDetails) {
+            val miracloToolbar =
+                rememberViewModel("MiraCLOProtoToolbar") {
+                    contentViewModel.toolbarViewModelFactory.create()
+                }
+            val miracloView = LocalView.current
+            val miracloProgress: () -> Float = {
+                val t = layoutState.transitionState
+                if (t is TransitionState.Transition && t.isTransitioningFromOrTo(contentKey)) {
+                    t.progressTo(contentKey).coerceIn(0f, 1f)
+                } else {
+                    1f
+                }
+            }
+            Box(modifier = modifier.graphicsLayer { alpha = contentAlphaFromBrightnessMirror }) {
+                // The shade's open/close gesture is driven by the panel element (it measures
+                // how far a pull has gone against it), so it stays here, full screen and
+                // invisible; the MiraCLO panel draws its own motion from the same progress.
+                Box(
+                    Modifier.fillMaxSize()
+                        .element(QuickSettingsShade.Elements.Panel)
+                        .graphicsLayer { alpha = 0f }
+                )
+                miracloQs.ProtoContent(
+                    container = quickSettingsContainerViewModel,
+                    contentScope = miracloSelf(),
+                    onPower = {
+                        miracloToolbar.powerButtonViewModel.onClick(
+                            com.android.systemui.animation.Expandable.fromView(miracloView)
+                        )
+                    },
+                    // The tint fades in over the whole screen with the pull...
+                    backgroundAlpha = miracloProgress,
+                    // ...and the panel opens exactly like the notification shade: it is revealed
+                    // from the top edge down with the pull (rounded lower edge), the controls
+                    // staying in place while they fade in. Closing follows the finger the same way.
+                    contentModifier =
+                        Modifier.fillMaxSize()
+                            .graphicsLayer {
+                                val p = miracloProgress()
+                                alpha = (p * 2f).coerceIn(0f, 1f)
+                                if (p < 1f) {
+                                    val revealed = (size.height * p).coerceAtLeast(1f)
+                                    val r = 32.dp.toPx()
+                                    clip = true
+                                    shape =
+                                        androidx.compose.foundation.shape.GenericShape { s, _ ->
+                                            addRoundRect(
+                                                androidx.compose.ui.geometry.RoundRect(
+                                                    left = 0f,
+                                                    top = 0f,
+                                                    right = s.width,
+                                                    bottom = revealed,
+                                                    topLeftCornerRadius = androidx.compose.ui.geometry.CornerRadius.Zero,
+                                                    topRightCornerRadius = androidx.compose.ui.geometry.CornerRadius.Zero,
+                                                    bottomRightCornerRadius = androidx.compose.ui.geometry.CornerRadius(r),
+                                                    bottomLeftCornerRadius = androidx.compose.ui.geometry.CornerRadius(r),
+                                                )
+                                            )
+                                        }
+                                } else {
+                                    clip = false
+                                }
+                            }
+                            .onPlaced { coordinates ->
+                                val bounds = coordinates.boundsInWindow()
+                                contentViewModel.onShadeOverlayBoundsChanged(bounds)
+                                contentViewModel.onPanelShapeInWindowChanged(
+                                    ShadeScrimShape(
+                                        bounds = ShadeScrimBounds(bounds),
+                                        topRadius = 0,
+                                        bottomRadius = 0,
+                                    )
+                                )
+                            },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                SnoozableHeadsUpNotificationPlaceholder(
+                    tag = "QSShadeOverlay",
+                    stackScrollView = notificationStackScrollView.get(),
+                    viewModel = hunPlaceholderViewModel,
+                )
+            }
+            return
+        }
 
         Box(
             modifier =
@@ -713,3 +814,6 @@ object QuickSettingsShade {
         }
     }
 }
+
+/** MiraCLO: this content scope, so the QS styles can place Android's real tiles in it. */
+private fun ContentScope.miracloSelf(): ContentScope = this

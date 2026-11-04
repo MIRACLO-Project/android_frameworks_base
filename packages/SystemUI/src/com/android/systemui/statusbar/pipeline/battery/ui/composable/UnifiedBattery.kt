@@ -203,6 +203,19 @@ fun BatteryLayout(
     modifier: Modifier,
     contentDescription: String = "",
 ) {
+    // MiraCLO: the battery shape follows the status bar icon style (its overlay sets it).
+    val miracloContext = androidx.compose.ui.platform.LocalContext.current
+    val miracloConfig = androidx.compose.ui.platform.LocalConfiguration.current
+    val miracloStyle =
+        remember(miracloConfig) {
+            runCatching {
+                    miracloContext.resources.getInteger(
+                        com.android.systemui.res.R.integer.miraclo_battery_style
+                    )
+                }
+                .getOrDefault(0)
+        }
+    androidx.compose.runtime.SideEffect { BatteryFrame.miracloStyle = miracloStyle }
     Layout(
         content = {
             BatteryBody(
@@ -270,7 +283,9 @@ class BatteryMeasurePolicy : MeasurePolicy {
                     )
             )
 
-        val cap = measurables.fastFirstOrNull { it.layoutId == LayoutId.Cap }
+        val cap =
+            if (!BatteryFrame.hasCap) null
+            else measurables.fastFirstOrNull { it.layoutId == LayoutId.Cap }
         val capPlaceable = run {
             cap?.let {
                 val size = BatteryFrame.capPathSpec.scaledSize(scale)

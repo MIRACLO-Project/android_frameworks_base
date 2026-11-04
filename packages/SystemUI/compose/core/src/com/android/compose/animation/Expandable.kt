@@ -431,6 +431,18 @@ private fun Modifier.expandable(
 }
 
 /**
+ * MiraCLO: turns any element into the launch source of a dialog or activity, without changing how
+ * it looks (give the controller a transparent color). The tile actions take [expandable].
+ */
+@Composable
+fun Modifier.miracloExpandable(expandable: Expandable, controller: ExpandableController): Modifier {
+    if (!dynamicTargetResolutionEnabled()) {
+        expandable.addSource(controller.transitionSource)
+    }
+    return this.expandable(expandable, controller)
+}
+
+/**
  * Registers a [TransitionSource] with its [Expandable] coordinator in a lifecycle-aware manner for
  * Compose.
  *

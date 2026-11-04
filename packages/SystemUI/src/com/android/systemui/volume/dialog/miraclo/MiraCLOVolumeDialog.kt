@@ -280,16 +280,16 @@ class MiraCLOVolumeDialog(
     }
 
     companion object {
-        /** Secure setting: 1 (default) for the MiraCLO volume panel, 0 for the stock one. */
+        /** Secure setting: 1 for the MiraCLO volume panel, 0 (default) for the stock one. */
         const val KEY = "miraclo_volume_panel"
 
         @JvmStatic
         fun isEnabled(context: Context): Boolean =
             try {
                 Settings.Secure.getIntForUser(
-                    context.contentResolver, KEY, 1, ActivityManager.getCurrentUser()) != 0
+                    context.contentResolver, KEY, 0, ActivityManager.getCurrentUser()) != 0
             } catch (_: Exception) {
-                true
+                false
             }
     }
 }

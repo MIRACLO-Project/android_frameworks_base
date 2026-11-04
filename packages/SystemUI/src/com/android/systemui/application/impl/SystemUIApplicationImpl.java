@@ -168,6 +168,8 @@ public class SystemUIApplicationImpl extends SystemUIApplication implements
         Animator.setPostNotifyEndListenerEnabled(true);
 
         if (mProcessWrapper.isSystemUser()) {
+            // MiraCLO: the launcher's double tap to lock
+            com.android.systemui.miraclo.MiraCLOSleep.register(this);
             IntentFilter bootCompletedFilter = new
                     IntentFilter(Intent.ACTION_LOCKED_BOOT_COMPLETED);
             bootCompletedFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);

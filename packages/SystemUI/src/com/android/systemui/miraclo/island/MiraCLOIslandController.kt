@@ -220,6 +220,7 @@ constructor(
         }
 
     override fun start() {
+        com.android.systemui.miraclo.MiraCLOStatusBarHeight.start(context)
         val resolver = context.contentResolver
         for (key in ALL_KEYS) {
             resolver.registerContentObserver(
@@ -328,29 +329,32 @@ constructor(
         val r = context.contentResolver
         fun on(key: String, def: Int) = Settings.Secure.getIntForUser(r, key, def, user) != 0
         islandEnabled = on(KEY_ENABLED, 0)
-        showMedia = on(KEY_MEDIA, 1)
-        showCalls = on(KEY_CALLS, 1)
-        showTimers = on(KEY_TIMERS, 1)
-        hideWhileOpen = on(KEY_HIDE_WHILE_OPEN, 1)
-        severalActivities = on(KEY_SEVERAL, 1)
-        pausedTimeout = on(KEY_PAUSED_TIMEOUT, 1)
-        showScreenRecord = on(KEY_SCREEN_RECORD, 1)
-        showLive = on(KEY_LIVE, 1)
-        showProgress = on(KEY_PROGRESS, 1)
-        systemSources.chargingEnabled = on(KEY_CHARGING, 1)
-        systemSources.earbudsEnabled = on(KEY_EARBUDS, 1)
-        systemSources.ringerEnabled = on(KEY_RINGER, 1)
-        systemSources.lowBatteryEnabled = on(KEY_LOW_BATTERY, 1)
+        // MiraCLO: every part starts off; each is turned on in Settings.
+        showMedia = on(KEY_MEDIA, 0)
+        showCalls = on(KEY_CALLS, 0)
+        showTimers = on(KEY_TIMERS, 0)
+        hideWhileOpen = on(KEY_HIDE_WHILE_OPEN, 0)
+        severalActivities = on(KEY_SEVERAL, 0)
+        pausedTimeout = on(KEY_PAUSED_TIMEOUT, 0)
+        showScreenRecord = on(KEY_SCREEN_RECORD, 0)
+        showLive = on(KEY_LIVE, 0)
+        showProgress = on(KEY_PROGRESS, 0)
+        systemSources.chargingEnabled = on(KEY_CHARGING, 0)
+        systemSources.earbudsEnabled = on(KEY_EARBUDS, 0)
+        systemSources.ringerEnabled = on(KEY_RINGER, 0)
+        systemSources.lowBatteryEnabled = on(KEY_LOW_BATTERY, 0)
         config =
             MiraCLOIslandView.Config(
                 // MiraCLO Liquid Glass glow also lights the island under the finger.
-                touchGlow = on(KEY_TOUCH_GLOW, 1) ||
+                touchGlow = on(KEY_TOUCH_GLOW, 0) ||
                     (on(KEY_LIQUID_GLASS, 0) && on(MiraCLORefraction.KEY_GLOW, 0)),
-                glass = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND, 1),
-                glassPills = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND_PILLS, 1),
-                ambientGlow = on(KEY_AMBIENT_GLOW, 1),
-                refraction = on(KEY_LIQUID_GLASS, 0) && on(MiraCLORefraction.KEY, 0),
-                haptics = on(KEY_HAPTICS, 1),
+                glass = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND, 0),
+                glassPills = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND_PILLS, 0),
+                ambientGlow = on(KEY_AMBIENT_GLOW, 0),
+                look = Settings.Secure.getIntForUser(r, KEY_LOOK, 0, user).coerceIn(0, 1),
+                // Refraction is part of Liquid Glass (no separate switch).
+                refraction = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND, 0),
+                haptics = on(KEY_HAPTICS, 0),
             )
         view?.config = config
     }
@@ -865,6 +869,7 @@ constructor(
         const val KEY_SEVERAL = "miraclo_island_several"
         const val KEY_TOUCH_GLOW = "miraclo_island_touch_glow"
         const val KEY_AMBIENT_GLOW = "miraclo_island_ambient_glow"
+        const val KEY_LOOK = "miraclo_island_look"
         const val KEY_HAPTICS = "miraclo_island_haptics"
         const val KEY_PAUSED_TIMEOUT = "miraclo_island_paused_timeout"
         const val KEY_SCREEN_RECORD = "miraclo_island_screen_record"
@@ -889,6 +894,7 @@ constructor(
                 KEY_SEVERAL,
                 KEY_TOUCH_GLOW,
                 KEY_AMBIENT_GLOW,
+                KEY_LOOK,
                 KEY_HAPTICS,
                 KEY_PAUSED_TIMEOUT,
                 KEY_SCREEN_RECORD,

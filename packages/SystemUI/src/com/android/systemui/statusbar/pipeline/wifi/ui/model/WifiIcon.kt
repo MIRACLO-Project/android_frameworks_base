@@ -141,7 +141,11 @@ sealed interface WifiIcon : Diffable<WifiIcon> {
             if (mIsWifiStandardDisplaySupported == null) {
                 initializeConfig(context)
             }
-            val isWifiStandardDisplaySupported = mIsWifiStandardDisplaySupported ?: false
+            // MiraCLO: with Android 17's new status bar icons, Wi-Fi always uses them (the
+            // Wi-Fi 4/5/6/7 icons are the old style), in the status bar and in Quick Settings.
+            val isWifiStandardDisplaySupported =
+                (mIsWifiStandardDisplaySupported ?: false) &&
+                    !com.android.settingslib.flags.Flags.newStatusBarIcons()
 
             return if (!this.showExclamation) {
                 val icon = when (wifiStandard) {

@@ -77,6 +77,18 @@ constructor(
     private val textFeedbackContentViewModelFactory: TextFeedbackContentViewModel.Factory,
     private val tileHapticsViewModelFactory: TileHapticsViewModel.Factory,
 ) : PaginatableGridLayout {
+    /** MiraCLO: what a real tile placed by a MiraCLO QS style needs. */
+    val miracloHaptics: TileHapticsViewModel.Factory
+        get() = tileHapticsViewModelFactory
+    val miracloDetails: DetailsViewModel
+        get() = detailsViewModel
+    /** MiraCLO: small (icon) or large tile, as set in edit mode. */
+    fun miracloIsSmall(spec: com.android.systemui.qs.pipeline.shared.TileSpec): Boolean =
+        iconTilesViewModel.isIconTile(spec)
+    /** MiraCLO: make a tile small (icon) or large, as the stock editor does. */
+    fun miracloResize(spec: com.android.systemui.qs.pipeline.shared.TileSpec, toIcon: Boolean) =
+        iconTilesViewModel.resize(spec, toIcon)
+
 
     @Composable
     override fun ContentScope.TileGrid(

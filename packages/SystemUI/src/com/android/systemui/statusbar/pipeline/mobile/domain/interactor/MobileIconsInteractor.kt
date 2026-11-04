@@ -21,6 +21,7 @@
  */
 
 package com.android.systemui.statusbar.pipeline.mobile.domain.interactor
+import kotlinx.coroutines.channels.awaitClose
 import android.content.Context
 import android.telephony.CarrierConfigManager
 import android.telephony.SubscriptionManager
@@ -173,6 +174,25 @@ constructor(
     private var ddsIcon: StateFlow<SignalIconModel?> = MutableStateFlow(null)
     private val enableStackedIcon: Boolean =
         context.resources.getBoolean(R.bool.config_enable_stacked_icon)
+
+    // MiraCLO: both SIMs' signals merged into Android 17's stacked icon. Off by default; Mira Studio
+    // (Top Bar › Icons › Merged SIMs) switches it live.
+    private val miracloStackSims: Flow<Boolean> =
+        kotlinx.coroutines.flow.callbackFlow {
+                val cr = context.contentResolver
+                fun read() = android.provider.Settings.Secure.getInt(cr, MIRACLO_STACK_SIMS, 0) != 0
+                val observer =
+                    object : android.database.ContentObserver(null) {
+                        override fun onChange(selfChange: Boolean) {
+                            trySend(read())
+                        }
+                    }
+                cr.registerContentObserver(
+                    android.provider.Settings.Secure.getUriFor(MIRACLO_STACK_SIMS), false, observer)
+                trySend(read())
+                awaitClose { cr.unregisterContentObserver(observer) }
+            }
+            .distinctUntilChanged()
     override fun setDdsIconFLow(iconFlow: StateFlow<SignalIconModel?>) {
         ddsIcon = iconFlow
     }
@@ -322,7 +342,8 @@ constructor(
             }
             .stateIn(scope, SharingStarted.WhileSubscribed(), emptyList())
     override val isStackable =
-        if (NewStatusBarIcons.isEnabled && enableStackedIcon) {
+        if (NewStatusBarIcons.isEnabled) {
+            miracloStackSims.flatMapLatest { on -> if (!on && !enableStackedIcon) flowOf(false) else
             icons.flatMapLatest { icons ->
                 if (icons.isEmpty()) {
                     flowOf(false)
@@ -337,7 +358,7 @@ constructor(
                             .let { it.size == 2 && it[0].numberOfLevels == it[1].numberOfLevels }
                     }
                 }
-            }
+            } }
         } else {
             flowOf(false)
         }
@@ -506,3 +527,6 @@ constructor(
         private const val LOGGING_PREFIX = "Intr"
     }
 }
+
+/** MiraCLO: 1 = both SIMs in one stacked icon (default), 0 = two icons. */
+const val MIRACLO_STACK_SIMS = "miraclo_sb_stack_sims"

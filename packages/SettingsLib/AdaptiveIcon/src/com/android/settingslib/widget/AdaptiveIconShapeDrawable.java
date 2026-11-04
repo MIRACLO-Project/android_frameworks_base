@@ -53,8 +53,9 @@ public class AdaptiveIconShapeDrawable extends ShapeDrawable {
 
     private void init(Resources resources) {
         final float pathSize = AdaptiveIconDrawable.MASK_SIZE;
-        final Path path = new Path(PathParser.createPathFromPathData(
-                resources.getString(com.android.internal.R.string.config_icon_mask)));
+        // MiraCLO: Settings icons are circles on every row.
+        final Path path = new Path();
+        path.addCircle(pathSize / 2f, pathSize / 2f, pathSize / 2f, Path.Direction.CW);
         setShape(new PathShape(path, pathSize, pathSize));
     }
 }

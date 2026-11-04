@@ -189,6 +189,7 @@ constructor(
             hydrateVisibility()
             automaticallySwitchScenes()
             hydrateSystemUiState()
+            miracloSettleStuckShade()
             collectFalsingSignals()
             respondToFalsingDetections()
             hydrateInteractionState()
@@ -600,6 +601,67 @@ constructor(
     }
 
     /** Keeps [SysUiState] up-to-date */
+    /**
+     * MiraCLO: a shade swipe (pull down, then push back) can be left half-way with no finger on
+     * the screen. The shade window then keeps every touch, so the gesture bar stops working. If a
+     * shade transition stands still like that, close the shade at once.
+     */
+    private fun miracloSettleStuckShade() {
+        val shade = setOf<com.android.compose.animation.scene.ContentKey>(
+            Scenes.Shade, Scenes.QuickSettings, Overlays.NotificationsShade, Overlays.QuickSettingsShade)
+        applicationScope.launch {
+            sceneInteractor.transitionStateFlow.collectLatest { state ->
+                if (state !is ObservableTransitionState.Transition) return@collectLatest
+                if (state.fromContent !in shade && state.toContent !in shade) return@collectLatest
+                var last = -1f
+                var still = 0L
+                while (true) {
+                    kotlinx.coroutines.delay(250)
+                    val p = state.progress.first()
+                    if (kotlin.math.abs(p - last) > 0.002f) { last = p; still = 0L; continue }
+                    still += 250
+                    val dragging = state.isUserInputOngoing.first()
+                    val sinceTouch =
+                        android.os.SystemClock.uptimeMillis() -
+                            com.android.systemui.miraclo.MiraCLOShadeTouch.lastEventAt
+                    val stuck =
+                        (still >= 1000 && !dragging &&
+                            !com.android.systemui.miraclo.MiraCLOShadeTouch.fingerDown) ||
+                            (still >= 5000 && sinceTouch >= 5000)
+                    if (!stuck) continue
+                    runCatching { miracloCloseShade(state) }
+                    return@collectLatest
+                }
+            }
+        }
+    }
+
+    private fun miracloCloseShade(t: ObservableTransitionState.Transition) {
+        val reason = "MiraCLO: settle a stuck shade swipe"
+        when (t) {
+            is ObservableTransitionState.Transition.OverlayTransition ->
+                // Same scene, so this only drops the shade overlays, instantly.
+                sceneInteractor.snapToScene(
+                    t.currentScene,
+                    reason,
+                    SceneInteractor.HideOverlayCommand.HideSome(
+                        listOf(Overlays.NotificationsShade, Overlays.QuickSettingsShade)),
+                )
+            is ObservableTransitionState.Transition.ChangeScene -> {
+                val under =
+                    listOf(t.fromContent, t.toContent).firstOrNull {
+                        it is com.android.compose.animation.scene.SceneKey &&
+                            it != Scenes.Shade && it != Scenes.QuickSettings
+                    } as? com.android.compose.animation.scene.SceneKey
+                if (under != null) {
+                    sceneInteractor.snapToScene(
+                        under, reason, SceneInteractor.HideOverlayCommand.HideNone)
+                }
+            }
+            else -> Unit
+        }
+    }
+
     private fun hydrateSystemUiState() {
         applicationScope.launch {
             combine(

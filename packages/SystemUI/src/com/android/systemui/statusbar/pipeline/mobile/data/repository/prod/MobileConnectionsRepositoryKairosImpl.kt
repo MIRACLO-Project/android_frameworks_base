@@ -423,6 +423,7 @@ constructor(
             nameTag("MobileConnectionsRepositoryKairosImpl.defaultDataSubRatConfig::rebuildOn"),
         ) {
             Config.readConfig(context).also {
+                com.android.systemui.miraclo.MiraCLOStatusIcons.apply(context, it)
                 effect(
                     name = nameTag("MobileConnectionsRepositoryKairosImpl.defaultDataSubRatConfig")
                 ) {

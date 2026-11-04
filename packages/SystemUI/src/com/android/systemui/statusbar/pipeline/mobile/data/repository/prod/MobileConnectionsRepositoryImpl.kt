@@ -305,9 +305,19 @@ constructor(
             .onEach { logger.logActionCarrierConfigChanged() }
 
     override val defaultDataSubRatConfig: StateFlow<Config?> =
-        merge(defaultDataSubId, carrierConfigChangedEvent)
+        // MiraCLO: Mira Studio's network label and call badges are applied on top, and a change to
+        // them rebuilds the config.
+        merge(
+                defaultDataSubId,
+                carrierConfigChangedEvent,
+                com.android.systemui.miraclo.MiraCLOStatusIcons.changes(context),
+            )
             .onStart { emit(Unit) }
-            .mapLatest { Config.readConfig(context) }
+            .mapLatest {
+                Config.readConfig(context).also {
+                    com.android.systemui.miraclo.MiraCLOStatusIcons.apply(context, it)
+                }
+            }
             .distinctUntilChanged()
             .onEach { logger.logDefaultDataSubRatConfig(it) }
             .stateIn(scope, SharingStarted.WhileSubscribed(), initialValue = null)

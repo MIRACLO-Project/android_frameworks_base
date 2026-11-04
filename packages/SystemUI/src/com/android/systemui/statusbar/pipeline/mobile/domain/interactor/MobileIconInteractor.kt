@@ -21,6 +21,7 @@
  */
 
 package com.android.systemui.statusbar.pipeline.mobile.domain.interactor
+import kotlinx.coroutines.channels.awaitClose
 import android.content.Context
 import android.telephony.ims.stub.ImsRegistrationImplBase.REGISTRATION_TECH_CROSS_SIM
 import android.telephony.ims.stub.ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN
@@ -555,6 +556,23 @@ class MobileIconInteractorImpl(
 
     override val isEmergencyOnly: StateFlow<Boolean> = connectionRepository.isEmergencyOnly
     override val isAllowedDuringAirplaneMode = connectionRepository.isAllowedDuringAirplaneMode
+    private val miracloNoDataMark: kotlinx.coroutines.flow.Flow<Boolean> =
+        kotlinx.coroutines.flow.callbackFlow {
+                val cr = context.contentResolver
+                fun read() = android.provider.Settings.Secure.getInt(cr, MIRACLO_NO_DATA_MARK, 1) != 0
+                val observer =
+                    object : android.database.ContentObserver(null) {
+                        override fun onChange(selfChange: Boolean) {
+                            trySend(read())
+                        }
+                    }
+                cr.registerContentObserver(
+                    android.provider.Settings.Secure.getUriFor(MIRACLO_NO_DATA_MARK), false, observer)
+                trySend(read())
+                awaitClose { cr.unregisterContentObserver(observer) }
+            }
+            .distinctUntilChanged()
+
     /** Whether or not to show the error state of [SignalDrawable] for cellular connections */
     private val showExclamationMarkForCellular: StateFlow<Boolean> =
         combine(
@@ -568,6 +586,8 @@ class MobileIconInteractorImpl(
                 !hideNoInternetState && (!isDataEnabled || (isDataConnected && isConnectionFailed)
                         || !isInService)
             }
+            // MiraCLO: Mira Studio (Top Bar › Icons › No-data mark) can hide the "!" on the signal.
+            .combine(miracloNoDataMark) { show, allowed -> show && allowed }
             .stateIn(scope, SharingStarted.WhileSubscribed(), true)
 
     /** Whether or not to show the error state of [SignalDrawable] for satellite connection */
@@ -676,3 +696,6 @@ class MobileIconInteractorImpl(
             .stateIn(scope, SharingStarted.WhileSubscribed(), initial)
     }
 }
+
+/** MiraCLO: 1 = show the "!" on a SIM without data (default), 0 = never. */
+const val MIRACLO_NO_DATA_MARK = "miraclo_sb_nodata_mark"

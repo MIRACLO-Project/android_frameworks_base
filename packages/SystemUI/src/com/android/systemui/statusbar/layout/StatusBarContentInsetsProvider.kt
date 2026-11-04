@@ -165,8 +165,18 @@ constructor(
     private val dumpableName = TAG + nameSuffix
     private val commandName = StatusBarInsetsCommand.NAME + nameSuffix
 
+    // MiraCLO: user side padding (Mira Studio › Top Bar › Icons) reloads the insets live.
+    private val miracloPadObserver =
+        object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) = clearCachedInsets()
+        }
+
     override fun start() {
         configurationController.addCallback(this)
+        for (k in listOf(MIRACLO_PAD_START, MIRACLO_PAD_END)) {
+            context.contentResolver.registerContentObserver(
+                android.provider.Settings.Secure.getUriFor(k), false, miracloPadObserver)
+        }
         dumpManager.registerNormalDumpable(dumpableName, this)
         commandRegistry.registerCommand(commandName) {
             StatusBarInsetsCommand(
@@ -183,6 +193,7 @@ constructor(
     }
 
     override fun stop() {
+        context.contentResolver.unregisterContentObserver(miracloPadObserver)
         configurationController.removeCallback(this)
         dumpManager.unregisterDumpable(dumpableName)
         commandRegistry.unregisterCommand(commandName)
@@ -335,15 +346,16 @@ constructor(
                 rotatedResources.getDimensionPixelSize(R.dimen.ongoing_appops_dot_diameter)
             else 0
 
-        val minLeft: Int
-        val minRight: Int
-        if (configurationController.isLayoutRtl) {
-            minLeft = max(minDotPadding, roundedCornerPadding)
-            minRight = roundedCornerPadding
-        } else {
-            minLeft = roundedCornerPadding
-            minRight = max(minDotPadding, roundedCornerPadding)
-        }
+        // MiraCLO: both sides use the same base, so the clock and the battery sit at the same
+        // distance from the screen edges. The vendor sets the corner padding to 0, so the
+        // panel's real value (17 dp) is the floor. The user can move each side in Mira Studio.
+        val density = rotatedResources.displayMetrics.density
+        val base = max(max(roundedCornerPadding, (17 * density).toInt()), minDotPadding)
+        val cr = context.contentResolver
+        fun userPx(key: String) =
+            (android.provider.Settings.Secure.getInt(cr, key, 0).coerceIn(-12, 24) * density).toInt()
+        val minLeft: Int = max(0, base + userPx(MIRACLO_PAD_START))
+        val minRight: Int = max(0, base + userPx(MIRACLO_PAD_END))
 
         val bottomAlignedMargin = getBottomAlignedMargin(targetRotation, rotatedResources)
         val statusBarContentHeight =
@@ -781,3 +793,7 @@ private fun Point.logicalWidth(@Rotation rot: Int): Int {
         else -> y
     }
 }
+
+/** MiraCLO: extra status bar side padding in dp (-12..24), set from Mira Studio. */
+const val MIRACLO_PAD_START = "miraclo_sb_pad_start"
+const val MIRACLO_PAD_END = "miraclo_sb_pad_end"

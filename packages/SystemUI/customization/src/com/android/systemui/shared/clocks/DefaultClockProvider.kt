@@ -60,10 +60,14 @@ constructor(
         return listOf(
             ClockMetadata(DEFAULT_CLOCK_ID),
             ClockMetadata(FLEX_CLOCK_ID, isDeprecated = true, replacementTarget = DEFAULT_CLOCK_ID),
-        )
+        ) + com.android.systemui.shared.clocks.miraclo.MiraClocks.metadata()
     }
 
     override fun createClock(ctx: Context, settings: ClockSettings): ClockController {
+        // MiraCLO lock screen clocks.
+        com.android.systemui.shared.clocks.miraclo.MiraClocks.createClock(ctx, settings)?.let {
+            return it
+        }
         if (getClocks().all { it.clockId != settings.clockId }) {
             throw IllegalArgumentException("${settings.clockId} is unsupported by $TAG")
         }
@@ -93,6 +97,8 @@ constructor(
     }
 
     override fun getClockPickerConfig(settings: ClockSettings): ClockPickerConfig {
+        com.android.systemui.shared.clocks.miraclo.MiraClocks.pickerConfig(
+                layoutInflater.context, settings)?.let { return it }
         if (getClocks().all { it.clockId != settings.clockId }) {
             throw IllegalArgumentException("${settings.clockId} is unsupported by $TAG")
         }

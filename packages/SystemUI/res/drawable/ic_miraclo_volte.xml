@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: MiraCLO
+     SPDX-License-Identifier: Apache-2.0
+
+     "VoLTE" badge for the status bar (Mira Studio > Status bar icons > VoLTE icon). Same 7 dp cap
+     height as the stock HD badge (ic_volte). Letters from Inter Bold (SIL Open Font License).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="29.659dp"
+    android:height="7dp"
+    android:viewportWidth="29.659"
+    android:viewportHeight="7">
+    <path
+        android:pathData="M2.452 7H4.327L6.723 8.882e-16H5.14L4.059 3.378C3.848 4.083 3.632 4.891 3.397 5.844C3.157 4.9 2.932 4.083 2.711 3.378L1.593 8.882e-16H0ZM9.807 7.103C11.386 7.103 12.377 6.013 12.377 4.397C12.377 2.772 11.386 1.682 9.807 1.682C8.224 1.682 7.237 2.772 7.237 4.397C7.237 6.013 8.224 7.103 9.807 7.103ZM9.807 5.995C9.055 5.995 8.675 5.309 8.675 4.393C8.675 3.462 9.055 2.791 9.807 2.791C10.559 2.791 10.944 3.467 10.944 4.393C10.944 5.309 10.559 5.995 9.807 5.995ZM13.295 7H17.749V5.811H14.728V8.882e-16H13.295ZM18.358 1.189H20.5V7H21.938V1.189H24.075V8.882e-16H18.358ZM24.965 7H29.659V5.811H26.398V4.05H29.405V2.88H26.398V1.189H29.649V8.882e-16H24.965Z"
+        android:fillColor="#000000"/>
+</vector>

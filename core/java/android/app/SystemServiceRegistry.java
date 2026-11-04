@@ -403,6 +403,15 @@ public final class SystemServiceRegistry {
                 return new CaptioningManager(ctx);
             }});
 
+        // MiraCLO: the stock Xiaomi camera asks for MIUI's "security" service (app lock).
+        // A stand-in answers that nothing is locked.
+        registerService("security", miui.security.SecurityManager.class,
+                new CachedServiceFetcher<miui.security.SecurityManager>() {
+            @Override
+            public miui.security.SecurityManager createService(ContextImpl ctx) {
+                return new miui.security.SecurityManager(ctx);
+            }});
+
         registerService(Context.ACCOUNT_SERVICE, AccountManager.class,
                 new CachedServiceFetcher<AccountManager>() {
             @Override

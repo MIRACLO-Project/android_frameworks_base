@@ -17,15 +17,18 @@
 package com.android.settingslib.spa.framework.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import com.android.settingslib.spa.framework.common.SpaEnvironmentFactory
 
 /**
  * The Material 3 Theme for Settings.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsTheme(content: @Composable () -> Unit) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -33,6 +36,8 @@ fun SettingsTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = materialColorScheme(isDarkTheme),
         typography = rememberSettingsTypography(),
+        // MiraCLO: Standard, Expressive or Snappy, from Mira Studio › Animations
+        motionScheme = MiraMotion.scheme(LocalContext.current),
     ) {
         CompositionLocalProvider(
             LocalContentColor provides MaterialTheme.colorScheme.onSurface,

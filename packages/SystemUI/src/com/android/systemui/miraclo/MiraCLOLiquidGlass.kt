@@ -33,7 +33,7 @@ import java.util.WeakHashMap
 
 /**
  * One place that knows where the MiraCLO Liquid Glass look is on. Settings > Display >
- * Liquid Glass has a main switch ([KEY]) and one switch per place (on by default); a place
+ * Liquid Glass has a main switch ([KEY]) and one switch per place (off by default); a place
  * is glass when both are on. Main thread only.
  */
 object MiraCLOLiquidGlass {
@@ -117,7 +117,7 @@ object MiraCLOLiquidGlass {
             // Without the observer the value is still read once below.
         }
         enabled = read(app, KEY, 0)
-        for (place in PLACES) places[place] = read(app, place, 1)
+        for (place in PLACES) places[place] = read(app, place, 0)
     }
 
     private fun read(context: Context, key: String, def: Int): Boolean =
@@ -133,7 +133,7 @@ object MiraCLOLiquidGlass {
         val now = read(context, KEY, 0)
         var changed = now != enabled
         for (place in PLACES) {
-            val on = read(context, place, 1)
+            val on = read(context, place, 0)
             if (places[place] != on) changed = true
             places[place] = on
         }

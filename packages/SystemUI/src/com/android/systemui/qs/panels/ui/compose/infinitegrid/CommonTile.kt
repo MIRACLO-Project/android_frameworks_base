@@ -130,6 +130,9 @@ fun LargeTileContent(
     textScale: () -> Float = { 1f },
     toggleClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
+    alwaysBubble: Boolean = false,
+    iconBoxSize: Dp? = null,
+    iconBoxStartInset: Dp = 0.dp,
 ) {
     val isDualTarget = toggleClick != null
     Row(
@@ -144,12 +147,18 @@ fun LargeTileContent(
         val focusBorderColor = MaterialTheme.colorScheme.secondary
         Box(
             modifier =
-                Modifier.size(CommonTileDefaults.ToggleTargetSize).thenIf(isDualTarget) {
-                    Modifier.borderOnFocus(color = focusBorderColor, iconShape.topEnd)
-                        .clip(iconShape)
-                        .drawBehind { drawRect(animatedBackgroundColor) }
-                        // apply the squish effect after the bg is drawn
-                        .verticalSquish(squishiness)
+                Modifier.padding(start = iconBoxStartInset)
+                    .size(iconBoxSize ?: CommonTileDefaults.ToggleTargetSize)
+                    .thenIf(isDualTarget) {
+                        Modifier.borderOnFocus(color = focusBorderColor, iconShape.topEnd)
+                    }
+                    // MiraCLO skins draw the bubble on every large tile
+                    .thenIf(isDualTarget || alwaysBubble) {
+                        Modifier.clip(iconShape).drawBehind { drawRect(animatedBackgroundColor) }
+                    }
+                    .thenIf(isDualTarget) {
+                    // apply the squish effect after the bg is drawn
+                    Modifier.verticalSquish(squishiness)
                         .combinedClickable(
                             onClick = toggleClick!!,
                             onLongClick = onLongClick,

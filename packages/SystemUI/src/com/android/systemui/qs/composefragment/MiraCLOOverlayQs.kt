@@ -26,6 +26,7 @@ import android.os.UserHandle
 import android.provider.Settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -87,6 +88,14 @@ constructor(
 ) {
     private val handler = Handler(Looper.getMainLooper())
     private val mediaSessions = MiraCLOMediaSessions()
+
+    init {
+        // Media sessions are tracked for SystemUI's whole life: the media pipeline does not replay
+        // sessions that already exist, so listening only while QS is open missed music that was
+        // already playing (and either panel closing removed the shared listener).
+        mediaDataManager.addListener(mediaSessions)
+    }
+
     private var watching = false
 
     /** MiraCLO Quick Settings (Settings > Display > Quick Settings style is not Default). */
@@ -101,6 +110,16 @@ constructor(
     private var layouts by mutableStateOf<Map<Int, String?>>(emptyMap())
 
     private val editor = MiraCLOQsEditor()
+
+    /** The style for the separate shade: 0 Stock, 1 ColorOS, 2 iOS, 4 One UI (see [MiraProtoStyle]). */
+    var protoStyle by mutableStateOf(MiraProtoStyle.STOCK)
+        private set
+
+    /** Stock style options from Mira Studio: round tiles and the tile size (56-88dp). */
+    var stockRound by mutableStateOf(false)
+        private set
+    var stockTileSize by mutableStateOf(72)
+        private set
 
     /** Liquid Glass on for Quick Settings. */
     var liquidGlass by mutableStateOf(false)
@@ -124,6 +143,19 @@ constructor(
             } catch (_: Exception) {
                 0
             }
+        protoStyle =
+            when (style) {
+                MiraProtoStyle.COLOROS, MiraProtoStyle.IOS, MiraProtoStyle.ONEUI -> style
+                else -> MiraProtoStyle.STOCK
+            }
+        stockRound = read(KEY_ROUND_TILES, 0)
+        stockTileSize =
+            try {
+                Settings.Secure.getIntForUser(
+                    context.contentResolver, KEY_TILE_SIZE, 72, ActivityManager.getCurrentUser())
+            } catch (_: Exception) {
+                72
+            }
         look = if (style == MiraCLOLook.IOS || style == MiraCLOLook.ONEUI) style else MiraCLOLook.COLOROS
         qsStyle = style == MiraCLOLook.COLOROS || style == MiraCLOLook.IOS || style == MiraCLOLook.ONEUI
         layouts =
@@ -138,8 +170,9 @@ constructor(
                     null
                 }
             }
-        liquidGlass = read(KEY_LIQUID_GLASS, 0) && read(KEY_LIQUID_GLASS_QS, 1)
-        refraction = liquidGlass && read(MiraCLORefraction.KEY, 0)
+        liquidGlass = read(KEY_LIQUID_GLASS, 0) && read(KEY_LIQUID_GLASS_QS, 0)
+        // Refraction is part of Liquid Glass (no separate switch).
+        refraction = liquidGlass
         glow = liquidGlass && read(MiraCLORefraction.KEY_GLOW, 0)
     }
 
@@ -154,6 +187,8 @@ constructor(
         for (key in
             listOf(
                 KEY_QS_STYLE,
+                KEY_ROUND_TILES,
+                KEY_TILE_SIZE,
                 KEY_LIQUID_GLASS,
                 KEY_LIQUID_GLASS_QS,
                 MiraCLORefraction.KEY,
@@ -207,9 +242,7 @@ constructor(
         modifier: Modifier = Modifier,
     ) {
         DisposableEffect(Unit) {
-            mediaDataManager.addListener(mediaSessions)
             onDispose {
-                mediaDataManager.removeListener(mediaSessions)
                 // Closing the panel leaves edit mode without saving.
                 editor.editing = false
             }
@@ -318,7 +351,97 @@ constructor(
         if (refraction) PlatformTheme(isDarkTheme = true) { body() } else body()
     }
 
+    /**
+     * The separate-shade Quick Settings, drawn exactly as the approved prototypes. [onPower]
+     * opens the power menu.
+     */
+    /** True while a style's own editor is open (Android's editor runs underneath). */
+    val styledEdit = mutableStateOf(false)
+
+    @Composable
+    fun ProtoContent(
+        container: QuickSettingsContainerViewModel,
+        contentScope: com.android.compose.animation.scene.ContentScope,
+        onPower: () -> Unit,
+        modifier: Modifier = Modifier,
+        contentModifier: Modifier = Modifier,
+        backgroundAlpha: () -> Float = { 1f },
+    ) {
+        val tileScope = androidx.compose.runtime.rememberCoroutineScope()
+        val host = remember(contentScope) {
+            MiraTileHost(
+                contentScope,
+                infiniteGridLayout.miracloHaptics,
+                infiniteGridLayout.miracloDetails,
+                tileScope,
+                isSmall = { infiniteGridLayout.miracloIsSmall(it.spec) },
+            )
+        }
+        // A style's own editor: Android's edit mode underneath, drawn in the style's look.
+        val editVm = container.editModeViewModel
+        val isEditing by editVm.isEditing.collectAsStateWithLifecycle()
+        val editTiles by remember(editVm) { editVm.tiles }
+            .collectAsStateWithLifecycle(initialValue = emptyList())
+        androidx.compose.runtime.LaunchedEffect(isEditing) {
+            if (!isEditing) styledEdit.value = false
+        }
+        DisposableEffect(editVm) {
+            onDispose {
+                if (styledEdit.value) {
+                    styledEdit.value = false
+                    editVm.stopEditing()
+                }
+            }
+        }
+        val editHost =
+            if (styledEdit.value && isEditing) {
+                MiraEditHost(
+                    tiles = editTiles,
+                    add = { editVm.addTile(it) },
+                    remove = { editVm.removeTile(it) },
+                    setOrder = { editVm.setTiles(it) },
+                    isSmall = { infiniteGridLayout.miracloIsSmall(it) },
+                    resize = { spec, toIcon -> infiniteGridLayout.miracloResize(spec, toIcon) },
+                    done = {
+                        editVm.stopEditing()
+                        styledEdit.value = false
+                    },
+                )
+            } else {
+                null
+            }
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalMiraTileHost provides host,
+            LocalMiraEditHost provides editHost,
+        ) {
+        MiraProtoShade(
+            style = protoStyle,
+            tiles = container.tileGridViewModel.tileViewModels,
+            mediaData = mediaSessions.current,
+            onOpenMedia = { activityStarter.postStartActivityDismissingKeyguard(it) },
+            brightness = rememberProtoBrightness(container.brightnessSliderViewModel),
+            volume = rememberProtoVolume(audioVolumeInteractor),
+            audio = audioVolumeInteractor,
+            open = { activityStarter.postStartActivityDismissingKeyguard(it, 0) },
+            power = onPower,
+            stockRound = stockRound,
+            stockTileSize = stockTileSize,
+            stockEdit = { container.editModeViewModel.startEditing() },
+            styleEdit = {
+                styledEdit.value = true
+                container.editModeViewModel.startEditing()
+            },
+            listening = { true },
+            modifier = modifier,
+            contentModifier = contentModifier,
+            backgroundAlpha = backgroundAlpha,
+        )
+        }
+    }
+
     companion object {
+        const val KEY_ROUND_TILES = "miraclo_qs_round_tiles"
+        const val KEY_TILE_SIZE = "miraclo_qs_tile_size"
         const val KEY_QS_STYLE = "miraclo_qs_style"
         const val KEY_LIQUID_GLASS = "miraclo_liquid_glass"
         const val KEY_LIQUID_GLASS_QS = "miraclo_lg_qs"

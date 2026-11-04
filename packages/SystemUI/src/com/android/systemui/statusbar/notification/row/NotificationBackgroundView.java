@@ -164,6 +164,11 @@ public class NotificationBackgroundView extends View implements Dumpable,
     /** Draws the card as glass: a see-through fill, then the gloss and the light rim. */
     private void drawLiquidGlass(Canvas canvas, Drawable drawable, int left, int top, int right,
             int bottom) {
+        // MiraCLO: the shelf (the row of overflow icons under the cards) has no card of its own
+        // with glass on; only its icons show.
+        if (getParent() instanceof com.android.systemui.statusbar.NotificationShelf) {
+            return;
+        }
         final Drawable.Callback callback = drawable.getCallback();
         // No callback while the alpha is changed for this one draw, so it does not ask for
         // another frame.

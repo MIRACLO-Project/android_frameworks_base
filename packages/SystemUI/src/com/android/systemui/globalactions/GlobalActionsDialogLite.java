@@ -787,6 +787,18 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             }
         }
 
+        // MiraCLO: the power menu holds Emergency, Power off, Restart and Advanced only
+        // (Advanced: Restart System UI, Reboot to recovery, Reboot to bootloader).
+        List<Action> miracloActions = new ArrayList<>();
+        for (Action a : tempActions) {
+            if (a instanceof EmergencyAction) miracloActions.add(a);
+        }
+        if (tempActions.contains(shutdownAction)) miracloActions.add(shutdownAction);
+        if (tempActions.contains(restartAction)) miracloActions.add(restartAction);
+        addIfShouldShowAction(miracloActions, new MiraCLOAdvancedAction());
+        tempActions.clear();
+        tempActions.addAll(miracloActions);
+
         // replace power and restart with a single power options action, if needed
         if (tempActions.contains(shutdownAction) && tempActions.contains(restartAction)
                 && tempActions.size() > getMaxShownPowerItems()) {
@@ -1130,6 +1142,31 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             }
             mUiEventLogger.log(GlobalActionsEvent.GA_REBOOT_PRESS);
             mWindowManagerFuncs.reboot(false);
+        }
+    }
+
+    /** MiraCLO: opens Restart System UI, Reboot to recovery and Reboot to bootloader. */
+    final class MiraCLOAdvancedAction extends SinglePressAction {
+        MiraCLOAdvancedAction() {
+            super(com.android.systemui.res.R.drawable.ic_miraclo_power_advanced, null,
+                    "Advanced");
+        }
+
+        @Override
+        public boolean showDuringKeyguard() {
+            return true;
+        }
+
+        @Override
+        public boolean showBeforeProvisioning() {
+            return true;
+        }
+
+        @Override
+        public void onPress() {
+            // after the power menu has gone
+            mHandler.postDelayed(
+                    () -> com.android.systemui.miraclo.MiraCLOAdvancedPower.show(mContext), 200);
         }
     }
 
@@ -2080,6 +2117,13 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             messageView.setSelected(true); // necessary for marquee to work
             mIconView.setImageDrawable(getIcon(context));
             mIconView.setScaleType(ScaleType.CENTER_CROP);
+            // MiraCLO: slightly smaller icons inside the buttons
+            final int miracloInset =
+                    (int) (4 * context.getResources().getDisplayMetrics().density);
+            mIconView.setPadding(mIconView.getPaddingLeft() + miracloInset,
+                    mIconView.getPaddingTop() + miracloInset,
+                    mIconView.getPaddingRight() + miracloInset,
+                    mIconView.getPaddingBottom() + miracloInset);
             if (mMiraCLOGlass) {
                 final float d = context.getResources().getDisplayMetrics().density;
                 mIconView.setBackground(new MiraCLOGlassDrawable(

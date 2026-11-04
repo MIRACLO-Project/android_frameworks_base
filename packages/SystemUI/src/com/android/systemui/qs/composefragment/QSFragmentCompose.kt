@@ -336,23 +336,18 @@ constructor(
     private fun readMiraCLOSettings() {
         val resolver = context?.contentResolver ?: return
         val userId = userTracker.userId
-        val style = Settings.Secure.getIntForUser(resolver, MIRACLO_QS_STYLE, 0, userId)
-        // 0 = stock; 1 ColorOS, 2 iOS, 4 One UI. Anything else (the old Nothing look) is stock.
-        miracloQsStyle =
-            style == MiraCLOLook.COLOROS || style == MiraCLOLook.IOS || style == MiraCLOLook.ONEUI
-        miracloLook = if (miracloQsStyle) style else MiraCLOLook.COLOROS
-        miracloRoundTiles =
-            Settings.Secure.getIntForUser(resolver, MIRACLO_QS_ROUND_TILES, 0, userId) != 0
-        miracloTileSize =
-            Settings.Secure.getIntForUser(resolver, MIRACLO_QS_TILE_SIZE, 0, userId)
-                .let { if (it in 48..96) it else 0 }
+        // The Mira Studio styles (and the Stock options) belong to the separate shade only; the
+        // combined shade is always stock.
+        miracloQsStyle = false
+        miracloLook = MiraCLOLook.COLOROS
+        miracloRoundTiles = false
+        miracloTileSize = 0
         miracloLayoutStore?.refresh()
         miracloLiquidGlass =
             Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS, 0, userId) != 0 &&
-                Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS_QS, 1, userId) != 0
-        miracloRefraction =
-            miracloLiquidGlass &&
-                Settings.Secure.getIntForUser(resolver, MiraCLORefraction.KEY, 0, userId) != 0
+                Settings.Secure.getIntForUser(resolver, MIRACLO_LIQUID_GLASS_QS, 0, userId) != 0
+        // MiraCLO: refraction is part of Liquid Glass (no separate switch)
+        miracloRefraction = miracloLiquidGlass
         miracloGlow =
             miracloLiquidGlass &&
                 Settings.Secure.getIntForUser(resolver, MiraCLORefraction.KEY_GLOW, 0, userId) != 0

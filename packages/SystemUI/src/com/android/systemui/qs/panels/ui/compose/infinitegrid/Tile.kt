@@ -171,6 +171,36 @@ internal val LocalMiraCLOHideTileLabels = compositionLocalOf { false }
 /** MiraCLO: round tiles show their label and state underneath (the iOS connectivity module). */
 internal val LocalMiraCLOTileDetails = compositionLocalOf { false }
 
+/**
+ * MiraCLO: the look of a real QS tile inside a MiraCLO QS style (from the approved mocks). Only the
+ * drawing changes; clicks, long-press, dialogs, haptics and accessibility stay the stock tile's.
+ */
+data class MiraTileSkin(
+    val shape: androidx.compose.ui.graphics.Shape,
+    val onBackground: Color,
+    val offBackground: Color,
+    val onContent: Color,
+    val offContent: Color,
+    val unavailableAlpha: Float = 0.45f,
+    /** Large tiles: the icon's own bubble (null = same as the background). */
+    val bubbleOn: Color? = null,
+    val bubbleOff: Color? = null,
+    /** Large tiles: label colour (null = the content colour). */
+    val label: Color? = null,
+    /** Large tiles: draw the round icon bubble on every tile, not only on dual-target ones. */
+    val bubbleAlways: Boolean = false,
+    /** Large tiles: the bubble's diameter (null = stock size). */
+    val bubbleSize: Dp? = null,
+    /** Large tiles: extra space between the tile's edge and the bubble. */
+    val bubbleInset: Dp = 0.dp,
+)
+
+/** MiraCLO skins: the large tile's icon bubble is a circle. */
+private val MiraSkinBubbleShape = RoundedCornerShape(percent = 50)
+
+/** Set by a MiraCLO QS style around each tile it places. */
+val LocalMiraTileSkin = compositionLocalOf<MiraTileSkin?> { null }
+
 /** iOS-style system colours. */
 private val MiraCLOIosBlue = Color(0xFF0A84FF)
 private val MiraCLOIosGreen = Color(0xFF30D158)
@@ -286,8 +316,19 @@ fun ContentScope.Tile(
         val miracloRefraction = false
         val miracloLightPanel = MaterialTheme.colorScheme.surface.luminance() >= 0.5f
         val miracloLookNow = LocalMiraCLOLook.current
+        val miraSkin = LocalMiraTileSkin.current
         val colors =
-            if (miracloStyle) TileDefaults.miracloColorsForState(uiState, iconOnly, tile.spec.spec)
+            if (miraSkin != null) {
+                val on = uiState.visualState == STATE_ACTIVE
+                val off = uiState.visualState == android.service.quicksettings.Tile.STATE_UNAVAILABLE
+                val bg = if (on) miraSkin.onBackground else miraSkin.offBackground
+                val fg = (if (on) miraSkin.onContent else miraSkin.offContent)
+                    .let { if (off) it.copy(alpha = it.alpha * miraSkin.unavailableAlpha) else it }
+                val bubble = (if (on) miraSkin.bubbleOn else miraSkin.bubbleOff) ?: bg
+                val lbl = miraSkin.label ?: fg
+                TileColors(background = bg, iconBackground = bubble, label = lbl,
+                    secondaryLabel = lbl.copy(alpha = lbl.alpha * 0.85f), icon = fg)
+            } else if (miracloStyle) TileDefaults.miracloColorsForState(uiState, iconOnly, tile.spec.spec)
             else TileDefaults.getColorForState(uiState, iconOnly)
         val hapticsViewModel: TileHapticsViewModel =
             rememberViewModel(traceName = "TileHapticsViewModel") {
@@ -295,7 +336,8 @@ fun ContentScope.Tile(
             }
 
         // TODO(b/361789146): Draw the shapes instead of clipping
-        val tileShape by TileDefaults.animateTileShapeAsState(uiState)
+        val stockShape by TileDefaults.animateTileShapeAsState(uiState)
+        val tileShape = miraSkin?.shape ?: stockShape
         // MiraCLO: SurfaceFlinger draws the refracting glass behind see-through tiles.
         val refractionModifier =
             Modifier.miracloRefraction(
@@ -394,7 +436,7 @@ fun ContentScope.Tile(
                         }
                         .borderOnFocus(
                             color = MaterialTheme.colorScheme.secondary,
-                            tileShape.topEnd,
+                            stockShape.topEnd,
                         )
                         .sysuiResTag("tile_expandable")
                         .fillMaxWidth()
@@ -499,7 +541,10 @@ fun ContentScope.Tile(
                             iconProvider = iconProvider,
                             sideDrawable = uiState.sideDrawable,
                             colors = colors,
-                            iconShape = iconShape,
+                            iconShape = if (miraSkin != null) MiraSkinBubbleShape else iconShape,
+                            alwaysBubble = miraSkin?.bubbleAlways == true,
+                            iconBoxSize = miraSkin?.bubbleSize,
+                            iconBoxStartInset = miraSkin?.bubbleInset ?: 0.dp,
                             toggleClick = secondaryClick,
                             onLongClick = longClick,
                             accessibilityUiState = uiState.accessibilityUiState,

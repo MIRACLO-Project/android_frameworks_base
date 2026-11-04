@@ -40,7 +40,69 @@ object BatteryFrame {
             viewportWidth = 21.dp,
         )
 
-    val bodyPathSpec: PathSpec =
+    /**
+     * MiraCLO: the battery shape of the status bar icon style (0 Android 17, 1 ColorOS, 2 iOS,
+     * 3 One UI), set from System UI's resources (the style's overlay). Read while measuring and
+     * drawing, so a change redraws every battery.
+     */
+    private val miracloStyleState = androidx.compose.runtime.mutableIntStateOf(0)
+    var miracloStyle: Int
+        get() = miracloStyleState.intValue
+        set(value) {
+            miracloStyleState.intValue = value.coerceIn(0, 3)
+        }
+
+    // body width and corner radius per style (13 high)
+    private val miracloWidths = floatArrayOf(24f, 26f, 27f, 30f)
+    private val miracloRadii = floatArrayOf(4f, 4f, 4.6f, 6.5f)
+
+    private fun miracloBody(w: Float, r: Float) =
+        PathSpec(
+            path =
+                Path().apply {
+                    addRoundRect(
+                        RoundRect(
+                            rect = Rect(0f, 0f, w, 13f),
+                            topLeft = CornerRadius(r),
+                            topRight = CornerRadius(r),
+                            bottomRight = CornerRadius(r),
+                            bottomLeft = CornerRadius(r),
+                        )
+                    )
+                },
+            viewportWidth = w.dp,
+            viewportHeight = 13.dp,
+        )
+
+    private fun miracloCap(w: Float, h: Float) =
+        PathSpec(
+            path =
+                Path().apply {
+                    addRoundRect(
+                        RoundRect(
+                            rect = Rect(0f, 0f, w, h),
+                            topLeft = CornerRadius.Zero,
+                            topRight = CornerRadius(w),
+                            bottomRight = CornerRadius(w),
+                            bottomLeft = CornerRadius.Zero,
+                        )
+                    )
+                },
+            viewportWidth = w.dp,
+            viewportHeight = h.dp,
+        )
+
+    private val miracloBodies = Array(4) { miracloBody(miracloWidths[it], miracloRadii[it]) }
+
+    /** The body of the current style (Android 17's is the first). */
+    val bodyPathSpec: PathSpec
+        get() = miracloBodies[miracloStyle]
+
+    /** True when the style draws the cap (One UI's battery is a plain pill). */
+    val hasCap: Boolean
+        get() = miracloStyle != 3
+
+    private val stockBodyPathSpec: PathSpec =
         PathSpec(
             path =
                 Path().apply {
@@ -58,7 +120,15 @@ object BatteryFrame {
             viewportHeight = 13.dp,
         )
 
-    val capPathSpec: PathSpec =
+    private val miracloCaps by lazy {
+        arrayOf(stockCapPathSpec, miracloCap(2.2f, 6f), miracloCap(2f, 5f), stockCapPathSpec)
+    }
+
+    /** The cap of the current style. */
+    val capPathSpec: PathSpec
+        get() = miracloCaps[miracloStyle]
+
+    private val stockCapPathSpec: PathSpec =
         PathSpec(
             path =
                 Path().apply {
@@ -71,13 +141,15 @@ object BatteryFrame {
         )
 
     /** The width of the drawable that is usable for inside elements */
-    const val innerWidth = 24f
+    val innerWidth: Float
+        get() = miracloWidths[miracloStyle]
 
     /** The height of the drawable that is usable for inside elements */
     const val innerHeight = 13f
 
     /** Corner radius for the battery body */
-    const val cornerRadius = 4f
+    val cornerRadius: Float
+        get() = miracloRadii[miracloStyle]
 }
 
 /**
