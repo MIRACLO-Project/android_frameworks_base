@@ -669,7 +669,8 @@ constructor(
                         .mapNotNull { it as? ObservableTransitionState.Idle }
                         .distinctUntilChanged(),
                     sceneInteractor.isVisibleFlow,
-                    shadePendingDisplayId,
+                    // MIRACLO: one screen; always update the phone's own display.
+                    kotlinx.coroutines.flow.flowOf(android.view.Display.DEFAULT_DISPLAY),
                     sceneBackInteractor.backStack,
                     shadeModeInteractor.shadeMode,
                 ) { idleState, isVisible, displayId, backStack, shadeMode ->

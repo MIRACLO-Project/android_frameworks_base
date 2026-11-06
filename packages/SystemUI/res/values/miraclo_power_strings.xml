@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: MIRACLO
+     SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <!-- Under the slide bars in the Mira power menu. -->
+    <string name="miraclo_power_hint">Slide to the end, or tap</string>
+    <!-- Round button in the Mira power menu: restart System UI, recovery, bootloader. -->
+    <string name="miraclo_power_advanced">Advanced</string>
+</resources>

@@ -117,8 +117,20 @@ open class SeekBarObserver(private val holder: MediaViewHolder) :
 
         holder.seekBar.thumb.alpha = if (data.seekAvailable) 255 else 0
         holder.seekBar.isEnabled = data.seekAvailable
+        // MIRACLO: Mira Studio › Motion › Wavy progress bar (Secure "miraclo_wavy_progress").
+        val miraWave =
+            try {
+                android.provider.Settings.Secure.getIntForUser(
+                    holder.seekBar.context.contentResolver,
+                    "miraclo_wavy_progress",
+                    1,
+                    android.os.UserHandle.USER_CURRENT,
+                ) != 0
+            } catch (_: Exception) {
+                true
+            }
         progressDrawable?.animate =
-            data.playing && !data.scrubbing && animationEnabled && data.listening
+            data.playing && !data.scrubbing && animationEnabled && data.listening && miraWave
         progressDrawable?.transitionEnabled = !data.seekAvailable
 
         if (holder.seekBar.maxHeight != seekBarEnabledMaxHeight) {

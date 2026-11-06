@@ -130,7 +130,7 @@ constructor(
             override fun getName() = "MiraCLOIsland"
 
             override fun suppressAwakeHeadsUp(entry: NotificationEntry): Boolean =
-                islandTakesOver(entry.sbn)
+                islandTakesOver(entry.sbn) || popUp(entry.sbn)
         }
 
     // Settings ------------------------------------------------------------------------------------
@@ -145,6 +145,7 @@ constructor(
     private var showScreenRecord = true
     private var showLive = true
     private var showProgress = true
+    private var showPopups = true
     private var config = MiraCLOIslandView.Config()
 
     // Global conditions ---------------------------------------------------------------------------
@@ -221,6 +222,7 @@ constructor(
 
     override fun start() {
         com.android.systemui.miraclo.MiraCLOStatusBarHeight.start(context)
+        com.android.systemui.miraclo.MiraChargingRing.start(context)
         val resolver = context.contentResolver
         for (key in ALL_KEYS) {
             resolver.registerContentObserver(
@@ -339,6 +341,7 @@ constructor(
         showScreenRecord = on(KEY_SCREEN_RECORD, 0)
         showLive = on(KEY_LIVE, 0)
         showProgress = on(KEY_PROGRESS, 0)
+        showPopups = on(KEY_POPUPS, 1)
         systemSources.chargingEnabled = on(KEY_CHARGING, 0)
         systemSources.earbudsEnabled = on(KEY_EARBUDS, 0)
         systemSources.ringerEnabled = on(KEY_RINGER, 0)
@@ -351,7 +354,15 @@ constructor(
                 glass = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND, 0),
                 glassPills = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND_PILLS, 0),
                 ambientGlow = on(KEY_AMBIENT_GLOW, 0),
-                look = Settings.Secure.getIntForUser(r, KEY_LOOK, 0, user).coerceIn(0, 1),
+                look = MiraCLOIslandView.LOOK_IOS,
+                pillLength =
+                    Settings.Secure.getIntForUser(
+                        r, KEY_PILL_LENGTH, MiraCLOIslandView.PILL_LENGTH_DEFAULT, user,
+                    ),
+                pillHeight =
+                    Settings.Secure.getIntForUser(
+                        r, KEY_PILL_HEIGHT, MiraCLOIslandView.PILL_HEIGHT_DEFAULT, user,
+                    ),
                 // Refraction is part of Liquid Glass (no separate switch).
                 refraction = on(KEY_LIQUID_GLASS, 0) && on(KEY_LG_ISLAND, 0),
                 haptics = on(KEY_HAPTICS, 0),
@@ -633,6 +644,108 @@ constructor(
         return true
     }
 
+    /**
+     * A new message or alert pops up from the island as a dark card (app icon or photo, title,
+     * text, Reply and Mark as read) instead of Android's banner, then folds away. Returns whether
+     * it did, so Android's banner gives way.
+     */
+    private fun popUp(sbn: StatusBarNotification): Boolean {
+        if (!islandEnabled || !showPopups || !isPortrait() || !statusBarShowing || dozing ||
+            shadeOpen || barState != StatusBarState.SHADE
+        ) {
+            return false
+        }
+        val n = sbn.notification
+        if (n.flags and (android.app.Notification.FLAG_GROUP_SUMMARY or
+                android.app.Notification.FLAG_ONGOING_EVENT or
+                android.app.Notification.FLAG_FOREGROUND_SERVICE) != 0
+        ) {
+            return false
+        }
+        if (n.fullScreenIntent != null) return false
+        if (reader.quickKind(sbn) != null) return false
+        if (n.extras.containsKey(android.app.Notification.EXTRA_MEDIA_SESSION)) return false
+        if (sbn.packageName == "android" || sbn.packageName == context.packageName) return false
+        if (isOnScreen(sbn.packageName)) return false
+        mainHandler.post { showPopup(sbn) }
+        return true
+    }
+
+    private fun showPopup(sbn: StatusBarNotification) {
+        val n = sbn.notification
+        val extras = n.extras
+        val title =
+            extras.getCharSequence(android.app.Notification.EXTRA_CONVERSATION_TITLE)
+                ?: extras.getCharSequence(android.app.Notification.EXTRA_TITLE)
+                ?: sbn.packageName
+        val text =
+            extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)
+                ?: extras.getCharSequence(android.app.Notification.EXTRA_TEXT)
+        val key = "miraclo:popup:" + sbn.key
+        val photo =
+            try {
+                n.getLargeIcon()?.loadDrawable(context)?.let { d ->
+                    val w = d.intrinsicWidth.coerceIn(1, 256)
+                    val h = d.intrinsicHeight.coerceIn(1, 256)
+                    Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                        d.setBounds(0, 0, w, h)
+                        d.draw(Canvas(it))
+                    }
+                }
+            } catch (_: Exception) {
+                null
+            }
+        val icon = try { n.smallIcon?.loadDrawable(context) } catch (_: Exception) { null }
+        fun send(pi: PendingIntent?) {
+            try {
+                pi?.send(
+                    BroadcastOptions.makeBasic()
+                        .apply {
+                            isInteractive = true
+                            pendingIntentBackgroundActivityStartMode =
+                                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+                        }
+                        .toBundle()
+                )
+            } catch (_: Exception) {}
+            removeActivity(key)
+        }
+        val actions = ArrayList<IslandAction>()
+        val reply = n.actions?.firstOrNull { it.remoteInputs?.isNotEmpty() == true }
+        if (reply != null && n.contentIntent != null) {
+            actions.add(IslandAction(context.getString(com.android.systemui.res.R.string.miraclo_popup_reply), null, null,
+                IslandAction.Style.NEUTRAL, run = { send(n.contentIntent) }))
+        }
+        n.actions?.firstOrNull {
+            it.semanticAction == android.app.Notification.Action.SEMANTIC_ACTION_MARK_AS_READ
+        }?.let { read ->
+            actions.add(IslandAction(context.getString(com.android.systemui.res.R.string.miraclo_popup_read), null, null,
+                IslandAction.Style.NEUTRAL, run = { send(read.actionIntent) }))
+        }
+        val until = SystemClock.uptimeMillis() + POPUP_MS
+        putActivity(
+            IslandActivity(
+                key = key,
+                kind = IslandKind.SYSTEM,
+                packageName = sbn.packageName,
+                accent = if (n.color != 0) n.color or 0xFF000000.toInt() else 0xFF7E99FF.toInt(),
+                title = title,
+                subtitle = text,
+                art = photo,
+                clock = null,
+                actions = actions,
+                contentIntent = n.contentIntent,
+                signature = "$key|$until",
+                alert = true,
+                icon = icon,
+                value = null,
+                expiresAt = until,
+            )
+        )
+        mainHandler.removeCallbacksAndMessages(key)
+        mainHandler.postAtTime({ removeActivity(key) }, key, until)
+    }
+
     private fun isShown(a: IslandActivity): Boolean =
         kindEnabled(a.kind) &&
             !dismissed.containsKey(a.key) &&
@@ -870,11 +983,17 @@ constructor(
         const val KEY_TOUCH_GLOW = "miraclo_island_touch_glow"
         const val KEY_AMBIENT_GLOW = "miraclo_island_ambient_glow"
         const val KEY_LOOK = "miraclo_island_look"
+        /** Main pill length and height in dp (sliders in the Dynamic Island page). */
+        const val KEY_PILL_LENGTH = "miraclo_island_pill_length"
+        const val KEY_PILL_HEIGHT = "miraclo_island_pill_height"
         const val KEY_HAPTICS = "miraclo_island_haptics"
         const val KEY_PAUSED_TIMEOUT = "miraclo_island_paused_timeout"
         const val KEY_SCREEN_RECORD = "miraclo_island_screen_record"
         const val KEY_LIVE = "miraclo_island_live_updates"
         const val KEY_PROGRESS = "miraclo_island_progress"
+        /** 1 (default): new notifications pop up from the island instead of Android's banner. */
+        const val KEY_POPUPS = "miraclo_island_popups"
+        private const val POPUP_MS = 5500L
         const val KEY_CHARGING = "miraclo_island_charging"
         const val KEY_EARBUDS = "miraclo_island_earbuds"
         const val KEY_RINGER = "miraclo_island_ringer"
@@ -894,12 +1013,14 @@ constructor(
                 KEY_SEVERAL,
                 KEY_TOUCH_GLOW,
                 KEY_AMBIENT_GLOW,
-                KEY_LOOK,
+                KEY_PILL_LENGTH,
+                KEY_PILL_HEIGHT,
                 KEY_HAPTICS,
                 KEY_PAUSED_TIMEOUT,
                 KEY_SCREEN_RECORD,
                 KEY_LIVE,
                 KEY_PROGRESS,
+                KEY_POPUPS,
                 KEY_CHARGING,
                 KEY_EARBUDS,
                 KEY_RINGER,

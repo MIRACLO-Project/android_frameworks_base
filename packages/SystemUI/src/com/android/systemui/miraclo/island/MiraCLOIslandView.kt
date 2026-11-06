@@ -123,6 +123,10 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
         val refraction: Boolean = false,
         /** Look of the island: [LOOK_IOS] or [LOOK_COLOROS]. Visual only. */
         val look: Int = LOOK_IOS,
+        /** Length of the main pill on the status bar, in dp ([PILL_LENGTH_MIN]..[PILL_LENGTH_MAX]). */
+        val pillLength: Int = PILL_LENGTH_DEFAULT,
+        /** Height of the main pill on the status bar, in dp ([PILL_HEIGHT_MIN]..[PILL_HEIGHT_MAX]). */
+        val pillHeight: Int = PILL_HEIGHT_DEFAULT,
     )
 
 
@@ -146,17 +150,28 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
 
     var config = Config()
         set(value) {
+            val resized = value.pillLength != field.pillLength || value.pillHeight != field.pillHeight
             field = value
             items.values.forEach { it.onConfigChanged() }
+            // A new pill size: the main pill and the round pills beside it glide to their places.
+            if (resized) {
+                retargetPending = true
+                requestLayout()
+                invalidate()
+            }
         }
 
     // Sizes --------------------------------------------------------------------------------------
 
-    private val pillW = dp(174).toFloat()
+    // The main pill's size is set in Settings (length and height sliders).
+    private val pillW: Float
+        get() = dp(config.pillLength.coerceIn(PILL_LENGTH_MIN, PILL_LENGTH_MAX)).toFloat()
     // The pill leaves the same margin all round the camera (marble: hole centre 47 px, 94 px bar),
     // so it never touches the top edge.
     private val pillH: Float
-        get() = dp(if (config.look == LOOK_COLOROS) 27 else 28).toFloat()
+        get() = dp(config.pillHeight.coerceIn(PILL_HEIGHT_MIN, PILL_HEIGHT_MAX)).toFloat()
+    /** The round pills beside the main one keep this size whatever the main pill's size. */
+    private val bubbleH = dp(PILL_HEIGHT_DEFAULT).toFloat()
     private val bubbleGap = dp(6).toFloat()
     private val compactH = dp(84)
     private val compactRadius = dp(30).toFloat()
@@ -346,6 +361,13 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
     private fun effectiveAlpha(): Float = shownFactor * (1f - smooth(shadeFraction, 0f, SHADE_HIDE_FRACTION))
 
     private fun applyAlpha() {
+        // MIRACLO: as the shade opens the island shrinks up into the shade's chip while it fades.
+        val t = smooth(shadeFraction, 0f, SHADE_HIDE_FRACTION)
+        pivotX = if (width > 0) cameraX() else 0f
+        pivotY = 0f
+        scaleX = 1f - 0.45f * t
+        scaleY = 1f - 0.45f * t
+        translationY = -dp(4) * t
         val a = effectiveAlpha()
         if (a == alpha) return
         val wasTouchable = alpha >= 0.5f
@@ -457,11 +479,11 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
                 }
                 1 -> {
                     item.role = Role.RIGHT
-                    item.animateTo(Geo(pillLeft + pillW + bubbleGap, top, pillH, pillH, pillH / 2f, 0f, 1f), pillStiffness(item), pillDamping(item))
+                    item.animateTo(Geo(pillLeft + pillW + bubbleGap, top + (pillH - bubbleH) / 2f, bubbleH, bubbleH, bubbleH / 2f, 0f, 1f), pillStiffness(item), pillDamping(item))
                 }
                 else -> {
                     item.role = Role.LEFT
-                    item.animateTo(Geo(pillLeft - bubbleGap - pillH, top, pillH, pillH, pillH / 2f, 0f, 1f), pillStiffness(item), pillDamping(item))
+                    item.animateTo(Geo(pillLeft - bubbleGap - bubbleH, top + (pillH - bubbleH) / 2f, bubbleH, bubbleH, bubbleH / 2f, 0f, 1f), pillStiffness(item), pillDamping(item))
                 }
             }
         }
@@ -2360,6 +2382,14 @@ class MiraCLOIslandView(context: Context, private val host: Host) : FrameLayout(
         const val LOOK_IOS = 0
         /** Pure black, slimmer 27 dp capsule, card shadow 8 dp; as ColorOS Fluid Cloud. */
         const val LOOK_COLOROS = 1
+
+        /** Main pill size limits in dp; the round pills beside it stay [PILL_HEIGHT_DEFAULT]. */
+        const val PILL_LENGTH_MIN = 120
+        const val PILL_LENGTH_MAX = 210
+        const val PILL_LENGTH_DEFAULT = 174
+        const val PILL_HEIGHT_MIN = 24
+        const val PILL_HEIGHT_MAX = 34
+        const val PILL_HEIGHT_DEFAULT = 28
 
         private const val NONE = 0
         private const val SIDEWAYS = 1

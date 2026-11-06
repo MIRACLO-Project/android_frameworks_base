@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: MIRACLO
+     SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="miraclo_charging">Charging</string>
+    <string name="miraclo_charging_fast">Fast charging</string>
+    <!-- %1$d minutes until full -->
+    <string name="miraclo_charging_full_m">Full in %1$d min</string>
+    <!-- %1$d hours and %2$d minutes until full -->
+    <string name="miraclo_charging_full_h">Full in %1$d h %2$d min</string>
+</resources>

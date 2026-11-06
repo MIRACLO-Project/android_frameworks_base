@@ -295,6 +295,49 @@ internal fun miraTime(ms: Long): String {
 // ---------------------------------------------------------------- the wavy seek bar
 
 /**
+ * Settings.Secure "miraclo_wavy_progress": 1 (default) draws the moving wave on media progress
+ * bars, 0 keeps them flat. Followed live, one observer per process. Main thread only.
+ */
+internal object MiraWaveSetting {
+    const val KEY = "miraclo_wavy_progress"
+    private var watching = false
+    var on by mutableStateOf(true)
+        private set
+
+    fun watch(context: android.content.Context) {
+        if (watching) return
+        watching = true
+        val app = context.applicationContext ?: context
+        fun read() {
+            on =
+                try {
+                    android.provider.Settings.Secure.getIntForUser(
+                        app.contentResolver,
+                        KEY,
+                        1,
+                        android.app.ActivityManager.getCurrentUser(),
+                    ) != 0
+                } catch (_: Exception) {
+                    true
+                }
+        }
+        try {
+            app.contentResolver.registerContentObserver(
+                android.provider.Settings.Secure.getUriFor(KEY),
+                false,
+                object : android.database.ContentObserver(
+                    android.os.Handler(android.os.Looper.getMainLooper())
+                ) {
+                    override fun onChange(selfChange: Boolean) = read()
+                },
+                android.os.UserHandle.USER_ALL,
+            )
+        } catch (_: Exception) {}
+        read()
+    }
+}
+
+/**
  * Material 3 Expressive's wavy bar: the played part is a moving wave while playing and flattens
  * when paused; the rest is a flat track after a small gap, with a dot at the end. Drag or tap to
  * seek when [onSeek] is set.
@@ -312,14 +355,17 @@ internal fun MiraWavyBar(
 ) {
     var dragging by remember { mutableStateOf<Float?>(null) }
     val shown = (dragging ?: fraction).coerceIn(0f, 1f)
-    // the wave's height eases in and out with play and pause
-    val amp = remember { androidx.compose.animation.core.Animatable(if (playing) 1f else 0f) }
-    LaunchedEffect(playing) {
-        amp.animateTo(if (playing) 1f else 0f, androidx.compose.animation.core.tween(450))
+    // the wave's height eases in and out with play and pause, and stays flat when turned off
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) { MiraWaveSetting.watch(ctx) }
+    val waving = playing && MiraWaveSetting.on
+    val amp = remember { androidx.compose.animation.core.Animatable(if (waving) 1f else 0f) }
+    LaunchedEffect(waving) {
+        amp.animateTo(if (waving) 1f else 0f, androidx.compose.animation.core.tween(450))
     }
     var phase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(playing) {
-        if (!playing) return@LaunchedEffect
+    LaunchedEffect(waving) {
+        if (!waving) return@LaunchedEffect
         var last = 0L
         while (isActive) {
             androidx.compose.runtime.withFrameMillis { t ->
@@ -328,10 +374,13 @@ internal fun MiraWavyBar(
             }
         }
     }
+    val seekNow = androidx.compose.runtime.rememberUpdatedState(onSeek)
     val input =
         if (onSeek == null) Modifier
         else
-            Modifier.pointerInput(onSeek) {
+            // MIRACLO: keyed on Unit, not on the lambda (a new one arrives with every position
+            // update while playing, which restarted the drag); the latest one seeks on release.
+            Modifier.pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     down.consume()
@@ -344,7 +393,7 @@ internal fun MiraWavyBar(
                         dragging = at(ch.position)
                         ch.consume()
                     }
-                    dragging?.let { onSeek(it) }
+                    dragging?.let { f -> seekNow.value?.invoke(f) }
                     dragging = null
                 }
             }
@@ -361,10 +410,10 @@ internal fun MiraWavyBar(
         if (x > start) {
             val path = Path()
             var px = start
-            path.moveTo(px, cy + wave * kotlin.math.sin(((px / length) - phase) * 2f * Math.PI.toFloat()))
+            path.moveTo(px, cy + wave * kotlin.math.sin(((px / length) + phase) * 2f * Math.PI.toFloat()))
             while (px < x) {
                 px = (px + 2f).coerceAtMost(x)
-                path.lineTo(px, cy + wave * kotlin.math.sin(((px / length) - phase) * 2f * Math.PI.toFloat()))
+                path.lineTo(px, cy + wave * kotlin.math.sin(((px / length) + phase) * 2f * Math.PI.toFloat()))
             }
             drawPath(path, active, style = Stroke(width = sw, cap = StrokeCap.Round))
         }

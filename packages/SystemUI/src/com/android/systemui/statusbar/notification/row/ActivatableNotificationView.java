@@ -376,8 +376,12 @@ public abstract class ActivatableNotificationView extends ExpandableOutlineView 
     }
 
     protected boolean usesTransparentBackground() {
+        // MIRACLO: see-through cards only with Liquid Glass notifications. With glass off the
+        // cards are solid, so text stays readable on any shade background.
         return mIsBlurSupported && notificationRowTransparency()
-                && (!mOnKeyguard || lockscreenBlurForNotifications());
+                && (!mOnKeyguard || lockscreenBlurForNotifications())
+                && com.android.systemui.miraclo.MiraCLOLiquidGlass.isEnabled(
+                        mContext, com.android.systemui.miraclo.MiraCLOLiquidGlass.NOTIFICATIONS);
     }
 
     @Override

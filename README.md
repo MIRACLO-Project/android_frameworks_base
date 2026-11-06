@@ -22,6 +22,7 @@ Private: access on request (see [MIRACLO](https://github.com/MIRACLO-Project/MIR
 Settings keys MIRACLO reads are all `Settings.Secure` `miraclo_*`.
 
 ## Rules for changes
+- Commits by PSP only; no other names, no co-author lines.
 - A new permission in System UI's manifest must also go into `data/etc/com.android.systemui.xml`,
   or the phone will not boot.
 - New `miui.*` (or other non-Android) packages in the framework must be listed in

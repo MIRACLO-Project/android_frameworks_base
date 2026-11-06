@@ -67,11 +67,20 @@ class SharedNotificationContainer(context: Context, attrs: AttributeSet?) :
         val constraintSet = ConstraintSet()
         constraintSet.clone(baseConstraintSet)
 
+        // MIRACLO: on a phone in landscape the notification shade sits in the middle of the
+        // screen (OverlayShade), so the notifications go in the middle with it, not on the left.
+        val cfg = context.resources.configuration
+        val miraCentre =
+            SceneContainerFlag.isEnabled &&
+                horizontalPosition is EdgeToMiddle &&
+                cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE &&
+                cfg.smallestScreenWidthDp < 600
+
         val startConstraintId =
             if (horizontalPosition is MiddleToEdge) R.id.nssl_guideline else PARENT_ID
 
         val endConstraintId =
-            if (SceneContainerFlag.isEnabled && horizontalPosition is EdgeToMiddle) {
+            if (SceneContainerFlag.isEnabled && horizontalPosition is EdgeToMiddle && !miraCentre) {
                 R.id.nssl_guideline
             } else {
                 PARENT_ID
@@ -85,8 +94,8 @@ class SharedNotificationContainer(context: Context, attrs: AttributeSet?) :
                         setGuidelinePercent(R.id.nssl_guideline, /* ratio= */ 0.5f)
                         constrainMaxWidth(nsslId, horizontalPosition.maxWidth)
                         // Ensure START alignment in case the maxWidth is smaller than half the
-                        // parent width.
-                        constraintSet.setHorizontalBias(nsslId, /* bias= */ 0f)
+                        // parent width (MIRACLO: centred on a phone in landscape).
+                        constraintSet.setHorizontalBias(nsslId, if (miraCentre) 0.5f else 0f)
                     }
                     is MiddleToEdge -> {
                         setGuidelinePercent(R.id.nssl_guideline, /* ratio= */ 0.5f)
@@ -103,8 +112,23 @@ class SharedNotificationContainer(context: Context, attrs: AttributeSet?) :
             // set. Let's keep the current nssl alpha instead, otherwise this might interfere with
             // animations.
             setAlpha(nsslId, nsslAlpha)
-            connect(nsslId, START, startConstraintId, START, marginStart)
-            connect(nsslId, END, endConstraintId, END, marginEnd)
+            if (miraCentre) {
+                // Centred in the same space as the shade panel: the screen minus the
+                // navigation bar and the camera cutout.
+                val ins =
+                    rootWindowInsets?.getInsets(
+                        android.view.WindowInsets.Type.systemBars() or
+                            android.view.WindowInsets.Type.displayCutout()
+                    )
+                val rtl = layoutDirection == View.LAYOUT_DIRECTION_RTL
+                val l = ins?.left ?: 0
+                val r = ins?.right ?: 0
+                connect(nsslId, START, PARENT_ID, START, if (rtl) r else l)
+                connect(nsslId, END, PARENT_ID, END, if (rtl) l else r)
+            } else {
+                connect(nsslId, START, startConstraintId, START, marginStart)
+                connect(nsslId, END, endConstraintId, END, marginEnd)
+            }
             connect(nsslId, BOTTOM, PARENT_ID, BOTTOM, marginBottom)
             connect(nsslId, TOP, PARENT_ID, TOP, marginTop)
         }

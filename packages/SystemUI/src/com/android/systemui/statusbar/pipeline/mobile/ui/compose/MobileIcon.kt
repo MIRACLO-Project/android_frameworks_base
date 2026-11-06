@@ -154,6 +154,7 @@ private fun MobileSignalIcon(
     val dimensions =
         if (numberOfBars == 5) mobileSignalFiveBarsDimensions else mobileSignalFourBarsDimensions
     val width = with(LocalDensity.current) { dimensions.totalWidth.toDp() }
+    val miraStyle = com.android.systemui.miraclo.MiraCLOSignalStyle.current()
 
     Canvas(
         modifier.width(width).height(height).graphicsLayer {
@@ -162,15 +163,37 @@ private fun MobileSignalIcon(
     ) {
         val rtl = layoutDirection == LayoutDirection.Rtl
         scale(if (rtl) -1f else 1f, 1f) {
-            val horizontalPaddingPx = dimensions.barsHorizontalPadding.roundToPx()
+            // MIRACLO: Android 17's bars, or the ColorOS, iOS or One UI style (Settings › Icons).
+            val STOCK = com.android.systemui.miraclo.MiraCLOSignalStyle.STOCK
+            val IOS = com.android.systemui.miraclo.MiraCLOSignalStyle.IOS
+            val ONEUI = com.android.systemui.miraclo.MiraCLOSignalStyle.ONEUI
+            val COLOROS = com.android.systemui.miraclo.MiraCLOSignalStyle.COLOROS
+            val basePaddingPx = dimensions.barsHorizontalPadding.roundToPx().toFloat()
+            val horizontalPaddingPx =
+                when (miraStyle) {
+                    ONEUI -> basePaddingPx * 1.6f
+                    COLOROS -> basePaddingPx * 1.3f
+                    else -> basePaddingPx
+                }
             val totalPaddingWidthPx = horizontalPaddingPx * (numberOfBars - 1)
             val barWidthPx = (size.width - totalPaddingWidthPx) / numberOfBars
             val baseBarHeightPx = dimensions.barBaseHeight.toPx()
             val levelIncrementPx = dimensions.barsLevelIncrement.toPx()
+            val lowest =
+                when (miraStyle) {
+                    IOS -> 0.36f
+                    ONEUI -> 0.3f
+                    COLOROS -> 0.4f
+                    else -> 0f
+                }
 
             var xOffsetPx = 0f
             for (bar in 1..numberOfBars) {
-                val barHeightPx = baseBarHeightPx + (levelIncrementPx * (bar - 1))
+                val barHeightPx =
+                    if (miraStyle == STOCK) baseBarHeightPx + (levelIncrementPx * (bar - 1))
+                    else
+                        size.height *
+                            (lowest + (1f - lowest) * (bar - 1) / maxOf(1, numberOfBars - 1))
                 val barYOffsetPx = size.height - barHeightPx
 
                 drawMobileSignalBar(
@@ -179,6 +202,15 @@ private fun MobileSignalIcon(
                     topLeft = Offset(xOffsetPx, barYOffsetPx),
                     size = Size(barWidthPx, barHeightPx),
                     activeColor = color,
+                    inactiveColor = color.copy(alpha = if (miraStyle == ONEUI) .25f else .3f),
+                    cornerRadius =
+                        CornerRadius(
+                            when (miraStyle) {
+                                IOS -> barWidthPx * 0.3f
+                                ONEUI -> barWidthPx * 0.15f
+                                else -> barWidthPx / 2
+                            }
+                        ),
                 )
 
                 xOffsetPx += barWidthPx + horizontalPaddingPx

@@ -77,6 +77,13 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.ui.graphics.painter.rememberDrawablePainter
@@ -108,14 +115,37 @@ import kotlinx.coroutines.withContext
  * the notification shade on the left, and scrolls (it no longer shrinks to fit the height).
  */
 @Composable
-internal fun MiraProtoFrame(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+internal fun MiraProtoFrame(
+    modifier: Modifier = Modifier,
+    wide: Boolean = false,
+    content: @Composable BoxScope.() -> Unit,
+) {
     BoxWithConstraints(modifier.fillMaxSize()) {
         val outer = LocalDensity.current
         val landscape =
             constraints.hasBoundedHeight && constraints.maxWidth > constraints.maxHeight
-        if (landscape) {
+        if (landscape && wide) {
+            // Styles with their own landscape layout get a wide canvas that fills the screen:
+            // controls on the left, tiles on the right, nothing scrolls.
+            val k =
+                kotlin.math.min(
+                    constraints.maxWidth / MIRA_LAND_WIDTH,
+                    constraints.maxHeight / MIRA_LAND_HEIGHT,
+                )
+            CompositionLocalProvider(
+                LocalDensity provides Density(k, miraFontScale(outer.fontScale)),
+                LocalMiraLandscape provides true,
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Box(
+                        Modifier.width(Dp(MIRA_LAND_WIDTH)).height(Dp(MIRA_LAND_HEIGHT)),
+                        content = content,
+                    )
+                }
+            }
+        } else if (landscape) {
             val panelPx = kotlin.math.min(constraints.maxWidth / 2f, MIRA_PROTO_WIDTH * outer.density)
-            val scaled = Density(panelPx / MIRA_PROTO_WIDTH, outer.fontScale)
+            val scaled = Density(panelPx / MIRA_PROTO_WIDTH, miraFontScale(outer.fontScale))
             Box(
                 Modifier.fillMaxSize()
                     .padding(end = androidx.compose.ui.unit.Dp(12f)),
@@ -139,7 +169,7 @@ internal fun MiraProtoFrame(modifier: Modifier = Modifier, content: @Composable 
             val byWidth = constraints.maxWidth / MIRA_PROTO_WIDTH
             val byHeight = constraints.maxHeight / MIRA_PROTO_HEIGHT
             val k = if (constraints.hasBoundedHeight) kotlin.math.min(byWidth, byHeight) else byWidth
-            val scaled = Density(k, outer.fontScale)
+            val scaled = Density(k, miraFontScale(outer.fontScale))
             CompositionLocalProvider(LocalDensity provides scaled) {
                 Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
                     Box(
@@ -154,6 +184,69 @@ internal fun MiraProtoFrame(modifier: Modifier = Modifier, content: @Composable 
 }
 
 internal const val MIRA_PROTO_WIDTH = 390f
+
+/**
+ * The styles are drawn to fixed sizes, so very large text would be clipped. Text still follows
+ * the system size, up to 115%, as in ColorOS and One UI.
+ */
+internal fun miraFontScale(system: Float): Float = system.coerceAtMost(1.15f)
+
+/**
+ * The panel settles with a small spring when the pull completes, and grows from 95% while it
+ * opens; the same motion as the ColorOS style, for every style.
+ */
+internal fun Modifier.miraSettle(open: () -> Float): Modifier =
+    composed {
+        val s = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(1f) }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            var was = open()
+            androidx.compose.runtime.snapshotFlow { open() }.collect { f ->
+                if (was < 0.95f && f >= 0.999f) {
+                    s.snapTo(1f)
+                    s.animateTo(
+                        1f,
+                        androidx.compose.animation.core.spring(dampingRatio = 0.42f, stiffness = 240f),
+                        initialVelocity = 0.32f,
+                    )
+                }
+                was = f
+            }
+        }
+        graphicsLayer {
+            val f = open().coerceIn(0f, 1f)
+            val k = s.value * (0.95f + 0.05f * f)
+            scaleX = k
+            scaleY = k
+            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+        }
+    }
+/** The landscape canvas of styles that lay themselves out side by side. */
+internal const val MIRA_LAND_WIDTH = 800f
+internal const val MIRA_LAND_HEIGHT = 370f
+
+/** True inside a style's wide landscape canvas ([MiraProtoFrame] with wide = true). */
+internal val LocalMiraLandscape = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/**
+ * In the wide landscape canvas, shows a portrait-only screen (edit mode, the music player) at its
+ * normal 390 x 800 size in the middle, scrolling. Elsewhere it simply fills the space.
+ */
+@Composable
+internal fun MiraPortraitWindow(content: @Composable BoxScope.() -> Unit) {
+    if (!LocalMiraLandscape.current) {
+        Box(Modifier.fillMaxSize(), content = content)
+        return
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+        Box(
+            Modifier.fillMaxHeight()
+                .width(Dp(MIRA_PROTO_WIDTH))
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+        ) {
+            Box(Modifier.width(Dp(MIRA_PROTO_WIDTH)).height(Dp(MIRA_PROTO_HEIGHT)), content = content)
+        }
+    }
+}
 internal const val MIRA_PROTO_HEIGHT = 800f
 
 /** Settings.Secure "miraclo_qs_style": 0 Stock, 1 ColorOS, 2 iOS, 4 One UI. */
@@ -246,7 +339,28 @@ internal fun Modifier.protoDetailsTap(
 }
 
 internal fun Modifier.protoTap(enabled: Boolean = true, onTap: () -> Unit): Modifier =
-    if (!enabled) this else pointerInput(onTap) { detectTapGestures(onTap = { onTap() }) }
+    if (!enabled) this
+    else
+        pointerInput(onTap) { detectTapGestures(onTap = { onTap() }) }
+            // MIRACLO: TalkBack and switch access can press it too.
+            .semantics {
+                role = Role.Button
+                onClick(action = { onTap(); true })
+            }
+
+/** The name TalkBack reads for a round button that only shows an icon. */
+internal fun Modifier.protoLabel(label: String?): Modifier =
+    if (label == null) this else semantics { contentDescription = label }
+
+/** Names for the icons used on the QS styles' round buttons. */
+internal fun miraIconLabel(name: String): String? =
+    when (name) {
+        "Edit" -> "Edit"
+        "Settings" -> "Settings"
+        "Power" -> "Power menu"
+        "Add" -> "Add"
+        else -> null
+    }
 
 /** Normalised tile spec ("internet" and "wifi" are both Wi-Fi, and so on). */
 internal fun TileViewModel.protoKey(): String =

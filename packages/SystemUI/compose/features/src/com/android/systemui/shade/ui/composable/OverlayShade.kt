@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
@@ -82,9 +83,25 @@ fun ContentScope.OverlayShade(
     val isFullWidth = LocalSceneContainerPreloadedResources.current.isFullWidthShade
     val panelSpec = rememberShadeExpansionMotion(isFullWidth)
     val panelCornerRadiusPx = with(LocalDensity.current) { panelSpec.radius.toPx() }
+    // MIRACLO: on a phone in landscape the notifications sit in one column in the middle.
+    val miraConfig = LocalConfiguration.current
+    val miraCentre =
+        !isFullWidth &&
+            alignmentOnWideScreens == Alignment.Start &&
+            miraConfig.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE &&
+            miraConfig.smallestScreenWidthDp < 600
+    val alignment = if (miraCentre) Alignment.CenterHorizontally else alignmentOnWideScreens
+    // MIRACLO: Quick Settings (Stock) on a phone in landscape uses the whole width, in two columns.
+    val miraWideQs =
+        !isFullWidth &&
+            alignmentOnWideScreens == Alignment.End &&
+            miraConfig.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE &&
+            miraConfig.smallestScreenWidthDp < 600
+    val miraAlignment = if (miraWideQs) Alignment.CenterHorizontally else alignment
     val panelAlignment =
         when {
             isFullWidth -> Alignment.TopCenter
+            miraCentre || miraWideQs -> Alignment.TopCenter
             alignmentOnWideScreens == Alignment.End -> Alignment.TopEnd
             else -> Alignment.TopStart
         }
@@ -95,7 +112,7 @@ fun ContentScope.OverlayShade(
         Box(
             modifier =
                 Modifier.fillMaxSize()
-                    .panelContainerPadding(isFullWidth, alignmentOnWideScreens, statusBarHeightPx),
+                    .panelContainerPadding(isFullWidth, miraAlignment, statusBarHeightPx),
             contentAlignment = panelAlignment,
         ) {
             Panel(
@@ -111,7 +128,10 @@ fun ContentScope.OverlayShade(
                                 label = "OverlayShade",
                             )
                         }
-                        .width(Dimensions.PanelWidth)
+                        .then(
+                            if (miraWideQs) Modifier.fillMaxWidth()
+                            else Modifier.width(Dimensions.PanelWidth)
+                        )
                         // TODO(440566878): Investigate if this can be optimized by replacing with
                         // onLayoutRectChanged.
                         .onPlaced { coordinates ->

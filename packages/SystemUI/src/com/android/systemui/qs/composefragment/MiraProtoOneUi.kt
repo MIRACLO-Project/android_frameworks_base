@@ -110,22 +110,24 @@ internal fun MiraOneUiQs(env: MiraProtoEnv) {
     val blockLayout = rememberMiraBlockLayout(MiraProtoStyle.ONEUI, OneUiBlocks)
 
     if (editing) {
-        OneUiEdit(c, env, layout, reserved) { editing = false }
+        MiraPortraitWindow { OneUiEdit(c, env, layout, reserved) { editing = false } }
         return
     }
     val editHost = LocalMiraEditHost.current
     if (editHost != null) {
-        MiraStyledEditor(
-            MiraEditLook(
-                fg = c.fg, fg2 = c.fg2, accent = Color.White, onAccent = OneUiInkOn, divider = c.track,
-                tileSurface = { shape -> Modifier.background(c.card, shape) },
-                smallSize = 56.dp,
-                largeShape = RoundedCornerShape(36.dp),
-                sizeNames = "Button" to "Pill",
-            ),
-            editHost,
-            blocks = blockLayout,
-        )
+        MiraPortraitWindow {
+            MiraStyledEditor(
+                MiraEditLook(
+                    fg = c.fg, fg2 = c.fg2, accent = Color.White, onAccent = OneUiInkOn, divider = c.track,
+                    tileSurface = { shape -> Modifier.background(c.card, shape) },
+                    smallSize = 56.dp,
+                    largeShape = RoundedCornerShape(36.dp),
+                    sizeNames = "Button" to "Pill",
+                ),
+                editHost,
+                blocks = blockLayout,
+            )
+        }
         return
     }
     // Tiles in Android's real order. Large tiles are One UI pills (two per row), small ones the
@@ -152,215 +154,219 @@ internal fun MiraOneUiQs(env: MiraProtoEnv) {
             }
         }
 
-        Column(
-            Modifier.offset(17.dp, 122.dp).width(356.dp).height((866 - 122).dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            // The widgets, in the order set in edit mode; sliders, media and the cards can be
-            // hidden there.
-            blockLayout.shown.forEach { block ->
-                androidx.compose.runtime.key(block) {
-                when (block) {
-                    OU_PILLS -> {
-                        pills.chunked(2).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                row.forEach { OneUiWidePill(c, it, Modifier.weight(1f)) }
-                                if (row.size == 1) Spacer(Modifier.weight(1f))
+        // The widgets column; in landscape the tile block gets its own column on the right.
+        val blocksColumn: @Composable (List<String>, androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp) -> Unit =
+            { list, x, y, h ->
+            Column(
+                Modifier.offset(x, y).width(356.dp).height(h).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // The widgets, in the order set in edit mode; sliders, media and the cards can be
+                // hidden there.
+                list.forEach { block ->
+                    androidx.compose.runtime.key(block) {
+                    when (block) {
+                        OU_PILLS -> {
+                            pills.chunked(2).forEach { row ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    row.forEach { OneUiWidePill(c, it, Modifier.weight(1f)) }
+                                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                                }
                             }
                         }
-                    }
-                    OU_TILES -> {
-                        // The expandable block: drag anywhere on it (not only the bar) to open or close it.
-                        // It grows under the finger, rows fade in as they appear, and when let go it springs
-                        // open or closed with the Animations spring (past halfway, or a flick). A tap on a
-                        // tile still works: the drag only starts once the finger moves.
-                        val all = visible.filter { it !in pills }
-                        val context = LocalContext.current
-                        val openScope = rememberCoroutineScope()
-                        val open = remember { Animatable(if (expanded) 1f else 0f) }
-                        val rowBottoms = remember { mutableStateMapOf<Int, Int>() }
-                        var fullPx by remember { mutableIntStateOf(0) }
-                        val tracker = remember { VelocityTracker() }
-                        fun collapsedPx(): Int = rowBottoms[1] ?: rowBottoms[0] ?: fullPx
-                        fun settle(target: Boolean) {
-                            expanded = target
-                            openScope.launch { open.animateTo(if (target) 1f else 0f, MiraMotion.spatialSpec(context)) }
-                        }
-                        Column(
-                            Modifier.fillMaxWidth()
-                                .background(c.card, RoundedCornerShape(34.dp))
-                                .pointerInput(Unit) {
-                                    detectVerticalDragGestures(
-                                        onDragStart = { tracker.resetTracking() },
-                                        onDragEnd = {
-                                            val v = tracker.calculateVelocity().y
-                                            settle(if (abs(v) > 900f) v > 0f else open.value > 0.5f)
-                                        },
-                                        onDragCancel = { settle(open.value > 0.5f) },
-                                    ) { change, dy ->
-                                        change.consume()
-                                        tracker.addPosition(change.uptimeMillis, change.position)
-                                        val span = (fullPx - collapsedPx()).coerceAtLeast(1)
-                                        val to = (open.value + dy / span).coerceIn(0f, 1f)
-                                        openScope.launch { open.snapTo(to) }
+                        OU_TILES -> {
+                            // The expandable block: drag anywhere on it (not only the bar) to open or close it.
+                            // It grows under the finger, rows fade in as they appear, and when let go it springs
+                            // open or closed with the Animations spring (past halfway, or a flick). A tap on a
+                            // tile still works: the drag only starts once the finger moves.
+                            val all = visible.filter { it !in pills }
+                            val context = LocalContext.current
+                            val openScope = rememberCoroutineScope()
+                            val open = remember { Animatable(if (expanded) 1f else 0f) }
+                            val rowBottoms = remember { mutableStateMapOf<Int, Int>() }
+                            var fullPx by remember { mutableIntStateOf(0) }
+                            val tracker = remember { VelocityTracker() }
+                            fun collapsedPx(): Int = rowBottoms[1] ?: rowBottoms[0] ?: fullPx
+                            fun settle(target: Boolean) {
+                                expanded = target
+                                openScope.launch { open.animateTo(if (target) 1f else 0f, MiraMotion.spatialSpec(context)) }
+                            }
+                            Column(
+                                Modifier.fillMaxWidth()
+                                    .background(c.card, RoundedCornerShape(34.dp))
+                                    .pointerInput(Unit) {
+                                        detectVerticalDragGestures(
+                                            onDragStart = { tracker.resetTracking() },
+                                            onDragEnd = {
+                                                val v = tracker.calculateVelocity().y
+                                                settle(if (abs(v) > 900f) v > 0f else open.value > 0.5f)
+                                            },
+                                            onDragCancel = { settle(open.value > 0.5f) },
+                                        ) { change, dy ->
+                                            change.consume()
+                                            tracker.addPosition(change.uptimeMillis, change.position)
+                                            val span = (fullPx - collapsedPx()).coerceAtLeast(1)
+                                            val to = (open.value + dy / span).coerceIn(0f, 1f)
+                                            openScope.launch { open.snapTo(to) }
+                                        }
+                                    }
+                                    .padding(top = 18.dp, bottom = 2.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(
+                                    Modifier.width(332.dp)
+                                        .clipToBounds()
+                                        .layout { m, cons ->
+                                            val p = m.measure(cons.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+                                            val low = collapsedPx().coerceAtMost(p.height)
+                                            val h = (low + (p.height - low) * open.value).toInt()
+                                            layout(p.width, h) { p.place(0, 0) }
+                                        }
+                                ) {
+                                    Column(
+                                        Modifier.fillMaxWidth().onSizeChanged { fullPx = it.height },
+                                        verticalArrangement = Arrangement.spacedBy(if (expanded) 12.dp else 16.dp),
+                                    ) {
+                                        all.chunked(4).forEachIndexed { r, row ->
+                                            Row(
+                                                Modifier.fillMaxWidth()
+                                                    .onGloballyPositioned { rowBottoms[r] = (it.positionInParent().y + it.size.height).toInt() }
+                                                    .graphicsLayer { alpha = if (r < 2) 1f else open.value }
+                                            ) {
+                                                row.forEach { tile ->
+                                                    Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
+                                                        OneUiButton(c, tile, expanded)
+                                                    }
+                                                }
+                                                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                                            }
+                                        }
                                     }
                                 }
-                                .padding(top = 18.dp, bottom = 2.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Box(
-                                Modifier.width(332.dp)
-                                    .clipToBounds()
-                                    .layout { m, cons ->
-                                        val p = m.measure(cons.copy(minHeight = 0, maxHeight = Constraints.Infinity))
-                                        val low = collapsedPx().coerceAtMost(p.height)
-                                        val h = (low + (p.height - low) * open.value).toInt()
-                                        layout(p.width, h) { p.place(0, 0) }
-                                    }
-                            ) {
-                                Column(
-                                    Modifier.fillMaxWidth().onSizeChanged { fullPx = it.height },
-                                    verticalArrangement = Arrangement.spacedBy(if (expanded) 12.dp else 16.dp),
+                                Box(
+                                    Modifier.size(120.dp, 30.dp).protoTap { settle(!expanded) },
+                                    contentAlignment = Alignment.Center,
                                 ) {
-                                    all.chunked(4).forEachIndexed { r, row ->
-                                        Row(
-                                            Modifier.fillMaxWidth()
-                                                .onGloballyPositioned { rowBottoms[r] = (it.positionInParent().y + it.size.height).toInt() }
-                                                .graphicsLayer { alpha = if (r < 2) 1f else open.value }
-                                        ) {
-                                            row.forEach { tile ->
-                                                Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                                                    OneUiButton(c, tile, expanded)
+                                    Box(Modifier.size(32.dp, 4.dp).background(Color.White.copy(alpha = 0.55f), RoundedCornerShape(2.dp)))
+                                }
+                            }
+                        }
+                        OU_BRIGHT -> {
+                            // Brightness and Extra dim.
+                            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                OneUiSlider(c, env.brightness, MiraCLOIcons.LightMode, Color(0xFFFF7A00), 26.dp, Modifier.weight(1f), shadow = true)
+                                val dim = env.tile("reduce_brightness")
+                                if (dim != null) {
+                                    val s = dim.protoState()
+                                    OneUiRoundToggle(c, s.isOn, MiraCLOIcons.Moon) { dim.protoToggle() }
+                                } else {
+                                    val context = LocalContext.current
+                                    var on by remember {
+                                        mutableStateOf(
+                                            runCatching {
+                                                    Settings.Secure.getIntForUser(
+                                                        context.contentResolver,
+                                                        Settings.Secure.REDUCE_BRIGHT_COLORS_ACTIVATED,
+                                                        0,
+                                                        ActivityManager.getCurrentUser(),
+                                                    ) != 0
                                                 }
-                                            }
-                                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                                                .getOrDefault(false)
+                                        )
+                                    }
+                                    OneUiRoundToggle(c, on, MiraCLOIcons.Moon) {
+                                        on = !on
+                                        runCatching {
+                                            Settings.Secure.putIntForUser(
+                                                context.contentResolver,
+                                                Settings.Secure.REDUCE_BRIGHT_COLORS_ACTIVATED,
+                                                if (on) 1 else 0,
+                                                ActivityManager.getCurrentUser(),
+                                            )
                                         }
                                     }
                                 }
                             }
-                            Box(
-                                Modifier.size(120.dp, 30.dp).protoTap { settle(!expanded) },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Box(Modifier.size(32.dp, 4.dp).background(Color.White.copy(alpha = 0.55f), RoundedCornerShape(2.dp)))
+                        }
+                        OU_VOLUME -> {
+                            // Media volume and Mute.
+                            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                OneUiSlider(c, env.volume, MiraCLOIcons.MusicNote, Color(0xFF3A3A3C), 28.dp, Modifier.weight(1f))
+                                val context = LocalContext.current
+                                val am = remember(context) { context.getSystemService(AudioManager::class.java) }
+                                val muted = env.volume.value == 0f
+                                OneUiRoundToggle(c, muted, MiraCLOIcons.VolumeOff) {
+                                    am?.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, 0)
+                                }
                             }
                         }
-                    }
-                    OU_BRIGHT -> {
-                        // Brightness and Extra dim.
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            OneUiSlider(c, env.brightness, MiraCLOIcons.LightMode, Color(0xFFFF7A00), 26.dp, Modifier.weight(1f), shadow = true)
-                            val dim = env.tile("reduce_brightness")
-                            if (dim != null) {
-                                val s = dim.protoState()
-                                OneUiRoundToggle(c, s.isOn, MiraCLOIcons.Moon) { dim.protoToggle() }
-                            } else {
-                                val context = LocalContext.current
-                                var on by remember {
-                                    mutableStateOf(
-                                        runCatching {
-                                                Settings.Secure.getIntForUser(
-                                                    context.contentResolver,
-                                                    Settings.Secure.REDUCE_BRIGHT_COLORS_ACTIVATED,
-                                                    0,
-                                                    ActivityManager.getCurrentUser(),
-                                                ) != 0
-                                            }
-                                            .getOrDefault(false)
+                        OU_MEDIA -> {
+                            // Media pill.
+                            val media = env.media("Play music", "")
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .height(72.dp)
+                                    .background(c.card, RoundedCornerShape(36.dp))
+                                    .protoTap {
+                                        media.open?.invoke()
+                                            ?: env.open(
+                                                android.content.Intent.makeMainSelectorActivity(
+                                                        android.content.Intent.ACTION_MAIN,
+                                                        android.content.Intent.CATEGORY_APP_MUSIC,
+                                                    )
+                                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            )
+                                    }
+                                    .padding(start = 32.dp, end = 22.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+                                    MiraProtoGlyph(MiraCLOIcons.MusicNote, c.fg, 17.dp)
+                                    Text(
+                                        if (media.idle) "Play music" else listOf(media.song, media.artist).filter { it.isNotEmpty() }.joinToString(" · "),
+                                        color = c.fg,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
-                                OneUiRoundToggle(c, on, MiraCLOIcons.Moon) {
-                                    on = !on
-                                    runCatching {
-                                        Settings.Secure.putIntForUser(
-                                            context.contentResolver,
-                                            Settings.Secure.REDUCE_BRIGHT_COLORS_ACTIVATED,
-                                            if (on) 1 else 0,
-                                            ActivityManager.getCurrentUser(),
-                                        )
-                                    }
+                                if (!media.idle) {
+                                    MediaKey(if (media.playing) MiraProtoIcons.Pause else MiraProtoIcons.Play, 24.dp, c.fg, media.playPause)
                                 }
+                                MiraProtoGlyph(MiraCLOIcons.CastConnected, c.fg, 26.dp)
                             }
                         }
-                    }
-                    OU_VOLUME -> {
-                        // Media volume and Mute.
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            OneUiSlider(c, env.volume, MiraCLOIcons.MusicNote, Color(0xFF3A3A3C), 28.dp, Modifier.weight(1f))
-                            val context = LocalContext.current
-                            val am = remember(context) { context.getSystemService(AudioManager::class.java) }
-                            val muted = env.volume.value == 0f
-                            OneUiRoundToggle(c, muted, MiraCLOIcons.VolumeOff) {
-                                am?.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, 0)
-                            }
-                        }
-                    }
-                    OU_MEDIA -> {
-                        // Media pill.
-                        val media = env.media("Play music", "")
-                        Row(
-                            Modifier.fillMaxWidth()
-                                .height(72.dp)
-                                .background(c.card, RoundedCornerShape(36.dp))
-                                .protoTap {
-                                    media.open?.invoke()
-                                        ?: env.open(
-                                            android.content.Intent.makeMainSelectorActivity(
-                                                    android.content.Intent.ACTION_MAIN,
-                                                    android.content.Intent.CATEGORY_APP_MUSIC,
-                                                )
-                                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        )
-                                }
-                                .padding(start = 32.dp, end = 22.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
-                                MiraProtoGlyph(MiraCLOIcons.MusicNote, c.fg, 17.dp)
-                                Text(
-                                    if (media.idle) "Play music" else listOf(media.song, media.artist).filter { it.isNotEmpty() }.joinToString(" · "),
-                                    color = c.fg,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            if (!media.idle) {
-                                MediaKey(if (media.playing) MiraProtoIcons.Pause else MiraProtoIcons.Play, 24.dp, c.fg, media.playPause)
-                            }
-                            MiraProtoGlyph(MiraCLOIcons.CastConnected, c.fg, 26.dp)
-                        }
-                    }
-                    OU_CARDS -> {
-                        if (!expanded) {
-                            val cards =
-                                listOf(
-                                    Triple(MiraCLOIcons.CastConnected, "Screen mirroring" to "Mirror screen", Settings.ACTION_CAST_SETTINGS),
-                                    Triple(MiraProtoIcons.Nightlight, "Modes" to modesSummary(env), Settings.ACTION_ZEN_MODE_SETTINGS),
-                                    Triple(MiraCLOIcons.Devices, "Nearby devices" to "", Settings.ACTION_BLUETOOTH_SETTINGS),
-                                    Triple(MiraProtoIcons.Home, "Device control" to "Smart home", "android.settings.DEVICE_CONTROLS_SETTINGS"),
-                                )
-                            cards.chunked(2).forEach { row ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    row.forEach { (icon, text, action) ->
-                                        Row(
-                                            Modifier.weight(1f)
-                                                .height(72.dp)
-                                                .background(c.card, RoundedCornerShape(36.dp))
-                                                .protoTap { env.open(miraProtoIntent(action)) }
-                                                .padding(start = 11.dp, end = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        ) {
-                                            Box(Modifier.size(50.dp).background(c.off, CircleShape), contentAlignment = Alignment.Center) {
-                                                MiraProtoGlyph(icon, c.fg, 26.dp)
-                                            }
-                                            Column(Modifier.weight(1f)) {
-                                                Text(text.first, color = c.fg, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                if (text.second.isNotEmpty()) {
-                                                    Text(text.second, color = c.fg2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        OU_CARDS -> {
+                            if (!expanded) {
+                                val cards =
+                                    listOf(
+                                        Triple(MiraCLOIcons.CastConnected, "Screen mirroring" to "Mirror screen", Settings.ACTION_CAST_SETTINGS),
+                                        Triple(MiraProtoIcons.Nightlight, "Modes" to modesSummary(env), Settings.ACTION_ZEN_MODE_SETTINGS),
+                                        Triple(MiraCLOIcons.Devices, "Nearby devices" to "", Settings.ACTION_BLUETOOTH_SETTINGS),
+                                        Triple(MiraProtoIcons.Home, "Device control" to "Smart home", "android.settings.DEVICE_CONTROLS_SETTINGS"),
+                                    )
+                                cards.chunked(2).forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        row.forEach { (icon, text, action) ->
+                                            Row(
+                                                Modifier.weight(1f)
+                                                    .height(72.dp)
+                                                    .background(c.card, RoundedCornerShape(36.dp))
+                                                    .protoTap { env.open(miraProtoIntent(action)) }
+                                                    .padding(start = 11.dp, end = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            ) {
+                                                Box(Modifier.size(50.dp).background(c.off, CircleShape), contentAlignment = Alignment.Center) {
+                                                    MiraProtoGlyph(icon, c.fg, 26.dp)
+                                                }
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(text.first, color = c.fg, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    if (text.second.isNotEmpty()) {
+                                                        Text(text.second, color = c.fg2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    }
                                                 }
                                             }
                                         }
@@ -368,12 +374,20 @@ internal fun MiraOneUiQs(env: MiraProtoEnv) {
                                 }
                             }
                         }
+                        else -> {}
                     }
-                    else -> {}
+                    }
                 }
-                }
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(24.dp))
+            }
+        if (LocalMiraLandscape.current) {
+            blocksColumn(blockLayout.shown.filter { it != OU_TILES }, 17.dp, 122.dp, (MIRA_LAND_HEIGHT - 122f).dp)
+            if (OU_TILES in blockLayout.shown) {
+                blocksColumn(listOf(OU_TILES), 427.dp, 36.dp, (MIRA_LAND_HEIGHT - 36f).dp)
+            }
+        } else {
+            blocksColumn(blockLayout.shown, 17.dp, 122.dp, (866 - 122).dp)
         }
     }
 }
@@ -404,7 +418,14 @@ private fun modesSummary(env: MiraProtoEnv): String {
 
 @Composable
 private fun OneUiHeaderButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onTap: () -> Unit) {
-    Box(Modifier.size(44.dp).protoTap(onTap = onTap), contentAlignment = Alignment.Center) {
+    val label =
+        when (icon) {
+            MiraCLOIcons.Edit -> "Edit"
+            MiraCLOIcons.Power -> "Power menu"
+            MiraCLOIcons.Settings -> "Settings"
+            else -> null
+        }
+    Box(Modifier.size(44.dp).protoTap(onTap = onTap).protoLabel(label), contentAlignment = Alignment.Center) {
         MiraProtoGlyph(icon, Color.White, 23.dp)
     }
 }

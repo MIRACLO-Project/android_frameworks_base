@@ -56,6 +56,8 @@ internal class MiraProtoEnv(
     val buildLabel: String,
     /** Opens this style's own editor (Android's editor underneath). */
     val styleEdit: () -> Unit = stockEdit,
+    /** How far the shade is open (0 closed, 1 open), for the styles' open spring. */
+    val openFraction: () -> Float = { 1f },
 ) {
     fun tile(key: String): TileViewModel? = tiles.firstOrNull { it.protoKey() == key }
 
@@ -124,6 +126,7 @@ internal fun MiraProtoShade(
             stockTileSize = stockTileSize,
             stockEdit = stockEdit,
             styleEdit = styleEdit,
+            openFraction = backgroundAlpha,
             buildLabel = "MIRACLO " + SystemProperties.get("ro.miraclo.version", "1.0"),
         )
     val (base, scrim) = miraProtoTint(style, dark)
@@ -131,15 +134,22 @@ internal fun MiraProtoShade(
     Box(modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxSize()
-                .graphicsLayer { alpha = backgroundAlpha() }
+                .graphicsLayer { alpha = backgroundAlpha() * (1f - MiraQsBrightOnly.fade) }
                 .background(base)
                 .background(scrim)
         )
-        MiraProtoFrame(contentModifier) {
+        MiraProtoFrame(
+            contentModifier,
+            wide =
+                style == MiraProtoStyle.COLOROS || style == MiraProtoStyle.ONEUI ||
+                    style == MiraProtoStyle.IOS,
+        ) {
             when (style) {
                 MiraProtoStyle.COLOROS -> MiraColorOSQs(env)
-                MiraProtoStyle.IOS -> MiraIosQs(env)
-                MiraProtoStyle.ONEUI -> MiraOneUiQs(env)
+                MiraProtoStyle.IOS ->
+                    Box(Modifier.fillMaxSize().miraSettle(env.openFraction)) { MiraIosQs(env) }
+                MiraProtoStyle.ONEUI ->
+                    Box(Modifier.fillMaxSize().miraSettle(env.openFraction)) { MiraOneUiQs(env) }
                 else -> MiraStockQs(env)
             }
         }

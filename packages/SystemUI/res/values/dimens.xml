@@ -360,8 +360,9 @@
     <!-- Distance over which notification corner animations run, near the shelf while scrolling. -->
     <dimen name="notification_corner_animation_distance">48dp</dimen>
 
-    <!-- Radius for notifications corners with adjacent notifications -->
-    <dimen name="notification_corner_radius_small">4dp</dimen>
+    <!-- Radius for notifications corners with adjacent notifications. MIRACLO: every card is
+         fully rounded and stands on its own, as in ColorOS and iOS. -->
+    <dimen name="notification_corner_radius_small">@dimen/notification_corner_radius</dimen>
 
     <!-- the padding of the shelf icon container -->
     <dimen name="shelf_icon_container_padding">13dp</dimen>
@@ -771,8 +772,9 @@
     <!-- Z distance between notifications if they are in the stack -->
     <dimen name="z_distance_between_notifications">0.5dp</dimen>
 
-    <!-- The height of the divider between the individual notifications. -->
-    <dimen name="notification_divider_height">2dp</dimen>
+    <!-- The height of the divider between the individual notifications. MIRACLO: a clear gap
+         between the separate cards. -->
+    <dimen name="notification_divider_height">8dp</dimen>
 
     <!-- The *additional* height of the divider between bundles. -->
     <dimen name="bundle_divider_height">2dp</dimen>
@@ -1462,7 +1464,7 @@
     <dimen name="control_menu_vertical_padding">12dp</dimen>
     <dimen name="control_menu_horizontal_padding">@dimen/notification_side_paddings_single</dimen>
     <dimen name="control_apps_popup_item_height">56dp</dimen>
-    <dimen name="control_popup_item_corner_radius">@dimen/notification_corner_radius_small</dimen>
+    <dimen name="control_popup_item_corner_radius">4dp</dimen>
     <dimen name="control_popup_items_divider_height">@dimen/controls_app_divider_height</dimen>
     <dimen name="control_popup_max_width">380dp</dimen>
     <dimen name="control_popup_corner_radius">@dimen/notification_corner_radius</dimen>

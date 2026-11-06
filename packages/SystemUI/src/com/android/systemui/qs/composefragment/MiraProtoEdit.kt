@@ -7,6 +7,8 @@ package com.android.systemui.qs.composefragment
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -140,6 +142,8 @@ internal fun MiraStyledEditor(
     var dragging by remember { mutableStateOf<TileSpec?>(null) }
     var dragDelta by remember { mutableStateOf(Offset.Zero) }
     var dragOrder by remember { mutableStateOf<List<TileSpec>?>(null) }
+    // MIRACLO: tiles are added from a sheet (Recommended first), as in ColorOS 17.
+    var sheet by remember { mutableStateOf(false) }
     val centres = remember { mutableStateMapOf<TileSpec, Offset>() }
     val shown = (dragOrder ?: order).filter { s -> current.any { it.tileSpec == s } }
     val bySpec = current.associateBy { it.tileSpec }
@@ -151,21 +155,31 @@ internal fun MiraStyledEditor(
         if (next.isSmall != host.isSmall(spec)) host.resize(spec, next.isSmall)
     }
 
-    Box(Modifier.fillMaxSize()) {
-        // Header: title and Done.
+    // Taps on empty space stay in the editor (the panel does not close under it).
+    Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures {} }) {
+        // Header: + (add sheet), title, and the grey Done pill, as in ColorOS 17.
         Row(
             Modifier.offset(20.dp, 44.dp).width(350.dp).height(40.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Edit", color = look.fg, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 6.dp))
+            Box(
+                Modifier.size(38.dp)
+                    .background(look.fg.copy(alpha = 0.14f), CircleShape)
+                    .protoTap(onTap = { sheet = true })
+                    .protoLabel("Add"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+", color = look.fg, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+            }
+            Text("Edit", color = look.fg, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(start = 12.dp))
             Box(
                 Modifier.height(38.dp)
-                    .background(look.accent, RoundedCornerShape(19.dp))
+                    .background(look.fg.copy(alpha = 0.14f), RoundedCornerShape(19.dp))
                     .protoTap(onTap = host.done)
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Done", color = look.onAccent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("Done", color = look.fg, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         Text(
@@ -268,39 +282,71 @@ internal fun MiraStyledEditor(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-            Box(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(1.dp).background(look.divider))
-            Text(
-                "Tap to add",
-                color = look.fg2,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 26.dp, top = 16.dp, bottom = 14.dp),
+            Spacer(Modifier.height(48.dp))
+        }
+
+        if (sheet) {
+            // The add sheet: Recommended first, then every other tile Android has.
+            val dark = look.fg.luminance() > 0.5f
+            Box(
+                Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .pointerInput(Unit) { detectTapGestures { sheet = false } }
             )
-            // Every tile that can be added: system tiles, then app tiles.
-            Column(Modifier.padding(start = 26.dp, end = 26.dp).fillMaxWidth()) {
-                host.available.chunked(4).forEach { row ->
-                    Row(Modifier.fillMaxWidth().height(100.dp)) {
-                        row.forEach { t ->
-                            Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                                MiraEditTile(
-                                    look, t, MiraCell.S11,
-                                    badge = "+",
-                                    badgeColor = look.accent,
-                                    onBadge = { host.add(t.tileSpec) },
-                                    onTap = { host.add(t.tileSpec) },
-                                    showApp = true,
-                                )
+            val available = host.available
+            val recommended = available.filter { it.tileSpec.spec in MIRA_RECOMMENDED }
+            val others = available.filter { it.tileSpec.spec !in MIRA_RECOMMENDED }
+            Column(
+                Modifier.offset(0.dp, 300.dp)
+                    .width(390.dp)
+                    .height(500.dp)
+                    .background(
+                        if (dark) Color(0xFF1C1D22) else Color(0xFFF4F5F8),
+                        RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                    )
+                    .pointerInput(Unit) { detectTapGestures {} }
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 40.dp)
+            ) {
+                Text("Add", color = look.fg, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                listOf("Recommended" to recommended, "All tiles" to others).forEach { (title, list) ->
+                    if (list.isEmpty()) return@forEach
+                    Text(
+                        title,
+                        color = look.fg2,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 10.dp),
+                    )
+                    list.chunked(4).forEach { row ->
+                        Row(Modifier.fillMaxWidth().height(100.dp)) {
+                            row.forEach { t ->
+                                Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
+                                    MiraEditTile(
+                                        look, t, MiraCell.S11,
+                                        badge = "+",
+                                        badgeColor = look.accent,
+                                        onBadge = { host.add(t.tileSpec); sheet = false },
+                                        onTap = { host.add(t.tileSpec); sheet = false },
+                                        showApp = true,
+                                    )
+                                }
                             }
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                         }
-                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
-            Spacer(Modifier.height(48.dp))
         }
     }
 }
+
+/** Tiles suggested first in the add sheet. */
+private val MIRA_RECOMMENDED =
+    setOf(
+        "flashlight", "dark", "rotation", "hotspot", "battery", "dnd", "screenrecord",
+        "qr_code_scanner", "airplane", "location", "nfc", "night", "mictoggle", "cameratoggle",
+    )
 
 @Composable
 private fun MiraEditTile(

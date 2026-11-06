@@ -543,121 +543,142 @@ private fun ContentScope.QuickSettingsLayout(
 
         VerticalSeparator(QuickSettingsShade.Dimensions.ToolbarBottomPadding)
 
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-            Media(
-                viewModelFactory = qsContainerViewModel.mediaViewModelFactory,
-                presentationStyle = MediaPresentationStyle.Compact,
-                behavior = QuickSettingsContainerViewModel.mediaUiBehavior,
-                onDismissed = qsContainerViewModel::onMediaSwipeToDismiss,
-                modifier = Modifier,
-                location = Media.Location.QS,
-            )
+        // MIRACLO: media, brightness and volume, then the tiles; side by side on a phone in
+        // landscape, one column otherwise.
+        val miraTop: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+                Media(
+                    viewModelFactory = qsContainerViewModel.mediaViewModelFactory,
+                    presentationStyle = MediaPresentationStyle.Compact,
+                    behavior = QuickSettingsContainerViewModel.mediaUiBehavior,
+                    onDismissed = qsContainerViewModel::onMediaSwipeToDismiss,
+                    modifier = Modifier,
+                    location = Media.Location.QS,
+                )
 
-            if (qsContainerViewModel.showMedia) {
-                VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
-            }
-
-            if (qsContainerViewModel.isBrightnessSliderVisible) {
-                Box(
-                    Modifier.systemGestureExclusionInShade(
-                        enabled = { layoutState.transitionState is TransitionState.Idle }
-                    )
-                ) {
-                    BrightnessSliderContainer(
-                        viewModel = qsContainerViewModel.brightnessSliderViewModel,
-                        containerColors =
-                            ContainerColors(
-                                idleColor = Color.Transparent,
-                                mirrorColor =
-                                    OverlayShade.Colors.panelBackground(isTransparencyEnabled),
-                            ),
-                        modifier = Modifier.fillMaxWidth(),
-                        dimensions = QuickSettingsShade.Dimensions.brightnessSliderDimensions,
-                    )
+                if (qsContainerViewModel.showMedia) {
+                    VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
                 }
-            }
 
-            if (volumeSliderViewModel != null) {
-                val volumeSliderState by volumeSliderViewModel.slider.collectAsStateWithLifecycle()
-
-                VerticalSeparator(QuickSettingsShade.Dimensions.VolumeSliderExtraPadding)
-                Box(
-                    Modifier.systemGestureExclusionInShade(
-                        enabled = { layoutState.transitionState is TransitionState.Idle }
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        VolumeSlider(
-                            modifier = Modifier.weight(1f),
-                            showLabel = false,
-                            state = volumeSliderState,
-                            onValueChange = { newValue: Float ->
-                                volumeSliderViewModel.onValueChanged(volumeSliderState, newValue)
-                            },
-                            onValueChangeFinished = {
-                                volumeSliderViewModel.onValueChangeFinished()
-                            },
-                            onIconTapped = { volumeSliderViewModel.toggleMuted(volumeSliderState) },
-                            sliderColors = PlatformSliderDefaults.defaultPlatformSliderColors(),
-                            hapticsViewModelFactory =
-                                volumeSliderViewModel.getSliderHapticsViewModelFactory(),
-                            dimensions = QuickSettingsShade.Dimensions.VolumeSliderDimensions,
+                if (qsContainerViewModel.isBrightnessSliderVisible) {
+                    Box(
+                        Modifier.systemGestureExclusionInShade(
+                            enabled = { layoutState.transitionState is TransitionState.Idle }
                         )
-                        Spacer(Modifier.width(8.dp))
-                        IconButton(
-                            modifier =
-                                Modifier.size(
-                                    QuickSettingsShade.Dimensions.VolumeSliderDimensions.trackHeight
+                    ) {
+                        BrightnessSliderContainer(
+                            viewModel = qsContainerViewModel.brightnessSliderViewModel,
+                            containerColors =
+                                ContainerColors(
+                                    idleColor = Color.Transparent,
+                                    mirrorColor =
+                                        OverlayShade.Colors.panelBackground(isTransparencyEnabled),
                                 ),
-                            colors =
-                                IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                                ),
-                            onClick = {
-                                qsContainerViewModel.detailsViewModel.onVolumeSettingsButtonClicked(
-                                    audioDetailsViewModelFactory.create()
-                                )
-                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            dimensions = QuickSettingsShade.Dimensions.brightnessSliderDimensions,
+                        )
+                    }
+                }
+
+                if (volumeSliderViewModel != null) {
+                    val volumeSliderState by volumeSliderViewModel.slider.collectAsStateWithLifecycle()
+
+                    VerticalSeparator(QuickSettingsShade.Dimensions.VolumeSliderExtraPadding)
+                    Box(
+                        Modifier.systemGestureExclusionInShade(
+                            enabled = { layoutState.transitionState is TransitionState.Idle }
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(
-                                painterResource(R.drawable.ic_more_vert),
-                                // TODO(b/378513663): Update the placeholder content description
-                                contentDescription = "Volume settings",
+                            VolumeSlider(
+                                modifier = Modifier.weight(1f),
+                                showLabel = false,
+                                state = volumeSliderState,
+                                onValueChange = { newValue: Float ->
+                                    volumeSliderViewModel.onValueChanged(volumeSliderState, newValue)
+                                },
+                                onValueChangeFinished = {
+                                    volumeSliderViewModel.onValueChangeFinished()
+                                },
+                                onIconTapped = { volumeSliderViewModel.toggleMuted(volumeSliderState) },
+                                sliderColors = PlatformSliderDefaults.defaultPlatformSliderColors(),
+                                hapticsViewModelFactory =
+                                    volumeSliderViewModel.getSliderHapticsViewModelFactory(),
+                                dimensions = QuickSettingsShade.Dimensions.VolumeSliderDimensions,
                             )
+                            Spacer(Modifier.width(8.dp))
+                            IconButton(
+                                modifier =
+                                    Modifier.size(
+                                        QuickSettingsShade.Dimensions.VolumeSliderDimensions.trackHeight
+                                    ),
+                                colors =
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    ),
+                                onClick = {
+                                    qsContainerViewModel.detailsViewModel.onVolumeSettingsButtonClicked(
+                                        audioDetailsViewModelFactory.create()
+                                    )
+                                },
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.ic_more_vert),
+                                    // TODO(b/378513663): Update the placeholder content description
+                                    contentDescription = "Volume settings",
+                                )
+                            }
                         }
                     }
                 }
-            }
+        }
+        val miraTiles: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+                VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
 
-            VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+                GridAnchor()
+                TileGrid(
+                    viewModel = qsContainerViewModel.tileGridViewModel,
+                    modifier = Modifier.fillMaxWidth(),
+                    enableRevealEffect = TileRevealFlag.isEnabled,
+                )
 
-            GridAnchor()
-            TileGrid(
-                viewModel = qsContainerViewModel.tileGridViewModel,
-                modifier = Modifier.fillMaxWidth(),
-                enableRevealEffect = TileRevealFlag.isEnabled,
-            )
+                val buildNumberViewModel =
+                    rememberViewModel("QuickSettingsShadeOverlay.BuildNumber") {
+                        buildNumberViewModelFactory.create()
+                    }
 
-            val buildNumberViewModel =
-                rememberViewModel("QuickSettingsShadeOverlay.BuildNumber") {
-                    buildNumberViewModelFactory.create()
+                if (buildNumberViewModel.buildNumber != null) {
+                    VerticalSeparator(QuickSettingsShade.Dimensions.ShortPadding)
+                    BuildNumber(
+                        viewModel = buildNumberViewModel,
+                        modifier =
+                            Modifier.align(Alignment.Start)
+                                .padding(start = QuickSettingsShade.Dimensions.HorizontalPadding),
+                    )
                 }
 
-            if (buildNumberViewModel.buildNumber != null) {
-                VerticalSeparator(QuickSettingsShade.Dimensions.ShortPadding)
-                BuildNumber(
-                    viewModel = buildNumberViewModel,
-                    modifier =
-                        Modifier.align(Alignment.Start)
-                            .padding(start = QuickSettingsShade.Dimensions.HorizontalPadding),
-                )
+                VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+        }
+        val miraConfig = androidx.compose.ui.platform.LocalConfiguration.current
+        if (
+            miraConfig.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE &&
+                miraConfig.smallestScreenWidthDp < 600
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(24.dp),
+            ) {
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), content = miraTop)
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), content = miraTiles)
             }
-
-            VerticalSeparator(QuickSettingsShade.Dimensions.VerticalPadding)
+        } else {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                miraTop()
+                miraTiles()
+            }
         }
     }
 }

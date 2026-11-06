@@ -605,7 +605,47 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
     // MIRACLO: Liquid Glass power menu (Settings > Display > Liquid Glass > Power menu).
     private boolean mMiraCLOGlass;
 
+    // MIRACLO: the Mira power menu (Mira Studio › Power menu), shown instead of Android's grid.
+    private android.app.Dialog mMiraPowerMenu;
+
+    private boolean miraShowPowerMenu() {
+        if (!com.android.systemui.miraclo.MiraCLOPowerMenu.isEnabled(mContext)) {
+            return false;
+        }
+        if (mMiraPowerMenu != null && mMiraPowerMenu.isShowing()) {
+            // The power button again closes it, like Android's menu.
+            mWindowManagerFuncs.onGlobalActionsShown();
+            mMiraPowerMenu.dismiss();
+            return true;
+        }
+        final UserInfo user = mUserTracker.getUserInfo();
+        final boolean lockdown = user != null && shouldDisplayLockdown(user);
+        mMiraPowerMenu = com.android.systemui.miraclo.MiraCLOPowerMenu.show(mContext,
+                new com.android.systemui.miraclo.MiraCLOPowerMenu.Actions() {
+                    @Override public void powerOff() { mWindowManagerFuncs.shutdown(); }
+                    @Override public void restart() { mWindowManagerFuncs.reboot(false); }
+                    @Override public void emergency() { new EmergencyDialerAction().onPress(); }
+                    @Override public void lockdown() { new LockDownAction().onPress(); }
+                    @Override public void advanced() {
+                        mHandler.postDelayed(() ->
+                                com.android.systemui.miraclo.MiraCLOAdvancedPower.show(mContext),
+                                200);
+                    }
+                    @Override public void onHidden() {
+                        mMiraPowerMenu = null;
+                        mWindowManagerFuncs.onGlobalActionsHidden();
+                    }
+                    @Override public boolean getShowLockdown() { return lockdown; }
+                    @Override public boolean getShowEmergency() { return mHasTelephonyCalling; }
+                });
+        mWindowManagerFuncs.onGlobalActionsShown();
+        return true;
+    }
+
     private void handleShow(@Nullable Expandable expandable, int displayId) {
+        if (miraShowPowerMenu()) {
+            return;
+        }
         mMiraCLOGlass = MiraCLOLiquidGlass.isEnabled(mContext, MiraCLOLiquidGlass.POWER);
         SystemUIDialog dialog = createDialog(displayId);
         prepareDialog();

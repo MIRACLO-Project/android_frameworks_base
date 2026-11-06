@@ -68,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -379,10 +380,10 @@ internal fun MiraIosQs(env: MiraProtoEnv) {
                     scope.launch { pager.scrollToPage(0) }
                 }
             },
-        ) {
+    label = "Add",) {
             MiraProtoGlyph(MiraCLOIcons.Add, c.fg, 16.dp)
         }
-        IosCircle(c, (390 - 30 - 34).dp, 18.dp, onTap = env.power) {
+        IosCircle(c, (390 - 30 - 34).dp, 18.dp, onTap = env.power, label = "Power menu") {
             MiraProtoGlyph(MiraCLOIcons.Power, c.fg, 16.dp)
         }
         Text(
@@ -390,7 +391,7 @@ internal fun MiraIosQs(env: MiraProtoEnv) {
             color = c.fg,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.offset(44.dp, 82.dp),
+            modifier = Modifier.offset(44.dp, 82.dp).alpha(if (LocalMiraLandscape.current) 0f else 1f),
         )
         if (editing) {
             Text(
@@ -404,45 +405,63 @@ internal fun MiraIosQs(env: MiraProtoEnv) {
             )
         }
 
-        VerticalPager(
-            state = pager,
-            userScrollEnabled = true,
-            modifier = Modifier.offset(42.dp, 124.dp).width(305.dp).height(640.dp),
-        ) { page ->
-            Box(Modifier.fillMaxSize()) {
-                when {
-                    page < cp ->
-                        IosControls(
-                            c = c,
-                            env = env,
-                            items = controlPages[page],
-                            cells = pageIdx[page].map { cells[it] },
-                            tiles = env.tiles,
-                            conn = conn,
-                            editing = editing,
-                            onOpenModule = { module = true },
-                            onRemove = { key -> remove(key) },
-                            onResize = { key -> resize(key) },
-                            onMove = { newPage -> move(controlPages[page], newPage) },
-                            onConnEdit = { connSheet = true },
-                        )
-                    page == cp -> IosNowPlaying(c, env)
-                    else -> IosConnectivityPage(c, conn.all)
+        // One page of controls (also drawn as two halves side by side in landscape).
+        val iosPage: @Composable (Int) -> Unit = { page ->
+            when {
+                page < cp ->
+                    IosControls(
+                        c = c,
+                        env = env,
+                        items = controlPages[page],
+                        cells = pageIdx[page].map { cells[it] },
+                        tiles = env.tiles,
+                        conn = conn,
+                        editing = editing,
+                        onOpenModule = { module = true },
+                        onRemove = { key -> remove(key) },
+                        onResize = { key -> resize(key) },
+                        onMove = { newPage -> move(controlPages[page], newPage) },
+                        onConnEdit = { connSheet = true },
+                    )
+                page == cp -> IosNowPlaying(c, env)
+                else -> IosConnectivityPage(c, conn.all)
+            }
+        }
+        val land = LocalMiraLandscape.current
+        var landPage by remember { mutableStateOf(0) }
+        if (land) {
+            // Landscape: the page's top four rows on the left, the bottom four on the right.
+            Box(Modifier.offset(30.dp, 48.dp).size(305.dp, 320.dp).clipToBounds()) {
+                Box(Modifier.size(305.dp, 640.dp)) { iosPage(landPage) }
+            }
+            Box(Modifier.offset(360.dp, 48.dp).size(305.dp, 320.dp).clipToBounds()) {
+                Box(Modifier.offset(0.dp, (-320).dp).size(305.dp, 640.dp)) { iosPage(landPage) }
+            }
+        } else {
+            VerticalPager(
+                state = pager,
+                userScrollEnabled = true,
+                modifier = Modifier.offset(42.dp, 124.dp).width(305.dp).height(640.dp),
+            ) { page ->
+                Box(Modifier.fillMaxSize()) {
+                    iosPage(page)
                 }
             }
         }
 
         // The page column: tap to jump.
         Column(
-            Modifier.offset(354.dp, 300.dp).width(32.dp),
+            Modifier.offset(if (land) 700.dp else 354.dp, if (land) 110.dp else 300.dp).width(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             (List(cp) { MiraProtoIcons.Favorite } + listOf(MiraCLOIcons.MusicNote, MiraProtoIcons.Tower)).forEachIndexed { i, icon ->
                 Box(
                     Modifier.size(32.dp)
-                        .alpha(if (pager.currentPage == i) 1f else 0.4f)
-                        .protoTap { scope.launch { pager.animateScrollToPage(i) } },
+                        .alpha(if ((if (land) landPage else pager.currentPage) == i) 1f else 0.4f)
+                        .protoTap {
+                            if (land) landPage = i else scope.launch { pager.animateScrollToPage(i) }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     MiraProtoGlyph(icon, c.fg, 15.dp)
@@ -667,9 +686,17 @@ private fun iosWidgetIcon(key: String) =
     }
 
 @Composable
-private fun IosCircle(c: MiraIosInk, x: Dp, top: Dp, onTap: () -> Unit, content: @Composable () -> Unit) {
+private fun IosCircle(
+    c: MiraIosInk,
+    x: Dp,
+    top: Dp,
+    onTap: () -> Unit,
+    label: String? = null,
+    content: @Composable () -> Unit,
+) {
     Box(
-        Modifier.offset(x, top).size(34.dp).protoGlass(CircleShape, c.off, c.edge, c.hi).protoTap(onTap = onTap),
+        Modifier.offset(x, top).size(34.dp).protoGlass(CircleShape, c.off, c.edge, c.hi).protoTap(onTap = onTap)
+            .protoLabel(label),
         contentAlignment = Alignment.Center,
     ) {
         content()

@@ -133,11 +133,7 @@ class MiraCLOVolumeDialog(
         setCancelable(false)
         setCanceledOnTouchOutside(false)
 
-        // Like the stock volume dialog, the panel sits on the end side of the screen.
-        val layoutDirection = context.resources.configuration.layoutDirection
-        panel.onLeft =
-            (Gravity.getAbsoluteGravity(Gravity.END, layoutDirection) and Gravity.LEFT) ==
-                Gravity.LEFT
+        applySide()
         panel.callbacks =
             object : MiraCLOVolumePanelView.Callbacks {
                 override fun onSetVolume(stream: Int, level: Int) {
@@ -183,9 +179,35 @@ class MiraCLOVolumeDialog(
         )
     }
 
+    /** Mira Studio › Volume panel › Side: left, right, or (default) the end side like stock. */
+    private fun applySide() {
+        val side =
+            try {
+                Settings.Secure.getIntForUser(
+                    context.contentResolver, KEY_SIDE, 0, ActivityManager.getCurrentUser())
+            } catch (_: Exception) {
+                0
+            }
+        val layoutDirection = context.resources.configuration.layoutDirection
+        val left =
+            when (side) {
+                1 -> true
+                2 -> false
+                else ->
+                    (Gravity.getAbsoluteGravity(Gravity.END, layoutDirection) and Gravity.LEFT) ==
+                        Gravity.LEFT
+            }
+        if (panel.onLeft != left) {
+            panel.onLeft = left
+            panel.requestLayout()
+            panel.invalidate()
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         leaving = false
+        applySide()
         val ctx = context
         val dark =
             (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
@@ -282,6 +304,8 @@ class MiraCLOVolumeDialog(
     companion object {
         /** Secure setting: 1 for the MIRACLO volume panel, 0 (default) for the stock one. */
         const val KEY = "miraclo_volume_panel"
+        /** Secure setting: 0 = end side (default), 1 = left, 2 = right. */
+        const val KEY_SIDE = "miraclo_volume_side"
 
         @JvmStatic
         fun isEnabled(context: Context): Boolean =
