@@ -48,7 +48,8 @@ constructor(
                 mediaCarouselInteractor.hasActiveMedia,
                 deviceEntryBypassInteractor.isBypassEnabled,
             ) { allowMediaOnLockscreen, hasActiveMedia, isBypassEnabled ->
-                allowMediaOnLockscreen && hasActiveMedia && !isBypassEnabled
+                // MIRACLO: no stock media player on the lock screen.
+                false && allowMediaOnLockscreen && hasActiveMedia && !isBypassEnabled
             }
             .distinctUntilChanged()
 

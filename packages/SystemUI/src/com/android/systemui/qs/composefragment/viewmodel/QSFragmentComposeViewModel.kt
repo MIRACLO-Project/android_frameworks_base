@@ -310,11 +310,8 @@ constructor(
             traceName = "qqsMediaVisible",
             initialValue = usingMedia,
             source =
-                if (usingMedia) {
-                    mediaHostVisible(qqsMediaHost, qqsMediaUiBehavior, mediaCarouselInteractor)
-                } else {
-                    flowOf(false)
-                },
+                // MIRACLO: no stock media player in the collapsed shade.
+                flowOf(false),
         )
 
     val qqsMediaInRow: Boolean

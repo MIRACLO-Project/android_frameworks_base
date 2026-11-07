@@ -165,6 +165,7 @@ constructor(
     private val statusBarStateController: SysuiStatusBarStateController,
     private val surfaceBehindInteractor: KeyguardSurfaceBehindInteractor,
     private val sysuiStateInteractor: SysUIStateDisplaysInteractor,
+    private val miraDefaultSysUiState: SysUiState,
     @SceneFrameworkTableLog private val tableLogBuffer: TableLogBuffer,
     private val trustInteractor: TrustInteractor,
     private val vibratorHelper: VibratorHelper,
@@ -695,6 +696,9 @@ constructor(
                         targetDisplayId = displayId,
                         stateChanges = StateChange.from(flagMap),
                     )
+                    // MIRACLO: apply it now; left pending, the launcher saw the shade as open and
+                    // blocked the navigation gestures until the shade was opened again.
+                    miraDefaultSysUiState.commitUpdate()
                 }
         }
     }

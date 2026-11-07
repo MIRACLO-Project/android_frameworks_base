@@ -609,7 +609,8 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
     private android.app.Dialog mMiraPowerMenu;
 
     private boolean miraShowPowerMenu() {
-        if (!com.android.systemui.miraclo.MiraCLOPowerMenu.isEnabled(mContext)) {
+        // MIRACLO: Android's own power menu for this release.
+        if (true || !com.android.systemui.miraclo.MiraCLOPowerMenu.isEnabled(mContext)) {
             return false;
         }
         if (mMiraPowerMenu != null && mMiraPowerMenu.isShowing()) {
@@ -835,7 +836,6 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         }
         if (tempActions.contains(shutdownAction)) miracloActions.add(shutdownAction);
         if (tempActions.contains(restartAction)) miracloActions.add(restartAction);
-        addIfShouldShowAction(miracloActions, new MiraCLOAdvancedAction());
         tempActions.clear();
         tempActions.addAll(miracloActions);
 

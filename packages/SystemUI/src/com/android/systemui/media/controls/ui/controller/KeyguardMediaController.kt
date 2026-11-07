@@ -335,8 +335,10 @@ constructor(
         val isBypassNotEnabled = !bypassController.bypassEnabled
         val useSplitShade = useSplitShade
         val shouldBeVisibleForSplitShade = shouldBeVisibleForSplitShade()
+        // MIRACLO: no stock media player on the lock screen.
         visible =
-            isMediaHostVisible &&
+            false &&
+                isMediaHostVisible &&
                 isBypassNotEnabled &&
                 keyguardOrUserSwitcher &&
                 shouldBeVisibleForSplitShade
