@@ -85,6 +85,15 @@ constructor(
         }
 
         windowRootViewBlurInteractor.registerShadeBlurChangedListener {
+            // MIRACLO: with the split (dual) shade open or moving, the blur behind it has a
+            // single owner, the panel's own position (see dualShadeBlurRadius). The shade's
+            // expansion-based request is computed from separate flows that update one by one
+            // and can be stale, so letting both write made the blur jump on every touch.
+            val dual = dualShadeBlurRadius(lastTransitionState)
+            if (dual != null) {
+                applyBlur(BlurEffect(dual, it.scale))
+                return@registerShadeBlurChangedListener
+            }
             v("Applying blur requested by shade", it.radius, it.scale)
             applyBlur(it)
         }
@@ -95,9 +104,45 @@ constructor(
         windowRootViewBlurInteractor.clearShadeBlurChangedListener()
     }
 
+    /** Last scene transition state seen, for the dual-shade blur owner. */
+    private var lastTransitionState: TransitionState? = null
+
+    /**
+     * Blur behind the split (dual) shade overlays, from how far the Notifications or Quick
+     * Settings overlay is shown; null when neither is involved. The last 15% of the way to
+     * fully shown counts as fully shown, so taps and slider drags that start and cancel a tiny
+     * close swipe never thin the blur.
+     */
+    private fun dualShadeBlurRadius(state: TransitionState?): Float? {
+        fun isShade(key: ContentKey) =
+            key == Overlays.QuickSettingsShade || key == Overlays.NotificationsShade
+        val shown: Float =
+            when (state) {
+                null -> return null
+                is TransitionState.Idle ->
+                    if (state.currentOverlays.any { isShade(it) }) 1f else return null
+                is TransitionState.Transition.ShowOrHideOverlay ->
+                    when {
+                        isShade(state.toContent) -> state.progress
+                        isShade(state.fromContent) -> 1f - state.progress
+                        else -> return null
+                    }
+                is TransitionState.Transition.ReplaceOverlay ->
+                    if (isShade(state.fromOverlay) && isShade(state.toOverlay)) 1f else return null
+                else -> return null
+            }
+        val settled = (shown.coerceIn(0f, 1f) / DUAL_SHADE_SETTLED).coerceIn(0f, 1f)
+        return transitionProgressToBlurRadius(
+            blurConfig.minBlurRadiusPx,
+            blurConfig.maxBlurRadiusPx,
+            settled,
+        )
+    }
+
     fun requestWindowBackgroundBlur(transitionState: TransitionState, transitionProgress: Float) {
+        lastTransitionState = transitionState
         val blurRadius =
-            when (transitionState) {
+            dualShadeBlurRadius(transitionState) ?: when (transitionState) {
                 is TransitionState.Idle -> transitionState.toBlurRadius()
                 is TransitionState.Transition.ChangeScene ->
                     transitionState.toBlurRadius(transitionProgress)
@@ -314,6 +359,8 @@ constructor(
     companion object {
         private const val BLUR_SCALE_COMMUNAL = 0.05f
         private const val BLUR_SCALE_BOUNCER = 0.05f
+        /** Share of a dual-shade overlay's travel that already counts as fully shown. */
+        private const val DUAL_SHADE_SETTLED = 0.85f
         private const val TAG = "SceneTransitionBlur"
         private val isLoggable
             get() = Log.isLoggable(TAG, Log.VERBOSE) || Build.IS_ENG
