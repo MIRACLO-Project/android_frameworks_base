@@ -191,6 +191,7 @@ constructor(
             automaticallySwitchScenes()
             hydrateSystemUiState()
             miracloSettleStuckShade()
+            miracloTrackShadeForGestures()
             collectFalsingSignals()
             respondToFalsingDetections()
             hydrateInteractionState()
@@ -607,6 +608,23 @@ constructor(
      * the screen. The shade window then keeps every touch, so the gesture bar stops working. If a
      * shade transition stands still like that, close the shade at once.
      */
+    /** MIRACLO: tells the shade window whether bottom-edge touches may open or drive a shade. */
+    private fun miracloTrackShadeForGestures() {
+        applicationScope.launch {
+            sceneInteractor.transitionStateFlow
+                .map { state ->
+                    when (state) {
+                        is ObservableTransitionState.Idle ->
+                            state.currentScene != Scenes.Gone || state.currentOverlays.isNotEmpty()
+                        is ObservableTransitionState.Transition -> state.toContent != Scenes.Gone
+                        else -> true
+                    }
+                }
+                .distinctUntilChanged()
+                .collect { com.android.systemui.scene.ui.view.WindowRootView.miraShadeOpen = it }
+        }
+    }
+
     private fun miracloSettleStuckShade() {
         val shade = setOf<com.android.compose.animation.scene.ContentKey>(
             Scenes.Shade, Scenes.QuickSettings, Overlays.NotificationsShade, Overlays.QuickSettingsShade)

@@ -22,6 +22,7 @@ import android.util.AttributeSet
 import android.util.Pair
 import android.view.DisplayCutout
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.widget.FrameLayout
@@ -31,6 +32,36 @@ import com.android.systemui.res.R
 
 /** A view that can serve as the root of the main SysUI window. */
 open class WindowRootView(context: Context, attrs: AttributeSet?) : FrameLayout(context, attrs) {
+
+    // MIRACLO: a touch that starts in the bottom navigation area belongs to the home gesture
+    // unless a shade is open or opening (it used to start opening the shade under the finger).
+    private var miraIgnoringGesture = false
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            val zone =
+                maxOf(
+                    rootWindowInsets
+                        ?.getInsets(WindowInsets.Type.mandatorySystemGestures())
+                        ?.bottom ?: 0,
+                    (40 * resources.displayMetrics.density).toInt(),
+                )
+            miraIgnoringGesture = !miraShadeOpen && ev.y >= height - zone
+        }
+        if (miraIgnoringGesture) {
+            if (ev.actionMasked == MotionEvent.ACTION_UP ||
+                ev.actionMasked == MotionEvent.ACTION_CANCEL) {
+                miraIgnoringGesture = false
+            }
+            return false
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    companion object {
+        /** MIRACLO: true while a shade/overlay is shown or opening (set by SceneContainerStartable). */
+        @JvmField @Volatile var miraShadeOpen = false
+    }
 
     private lateinit var layoutInsetsController: LayoutInsetsController
     private var leftInset = 0

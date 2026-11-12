@@ -255,7 +255,7 @@ internal fun MiraOneUiQs(env: MiraProtoEnv) {
                             // Brightness and Extra dim.
                             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 OneUiSlider(c, env.brightness, MiraCLOIcons.LightMode, Color(0xFFFF7A00), 26.dp, Modifier.weight(1f), shadow = true)
-                                val dim = env.tile("reduce_brightness")
+                                val dim = env.tile("dark") // MIRACLO: Extra dim blacks out this display
                                 if (dim != null) {
                                     val s = dim.protoState()
                                     OneUiRoundToggle(c, s.isOn, MiraCLOIcons.Moon) { dim.protoToggle() }

@@ -132,6 +132,14 @@ constructor(
     private var _flags: Long = 0
     private val stateChange = StateChange()
 
+    // MIRACLO: commit staged changes automatically (a staged-only change froze gestures).
+    private val miraHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var miraCommitPosted = false
+    private val miraCommit = Runnable {
+        miraCommitPosted = false
+        commitUpdate()
+    }
+
     /**
      * Add listener to be notified of changes made to SysUI state. The callback will also be called
      * as part of this function.
@@ -164,6 +172,10 @@ constructor(
             )
         }
         stateChange.setFlag(flag, toSet)
+        if (!miraCommitPosted) {
+            miraCommitPosted = true
+            miraHandler.post(miraCommit)
+        }
         return this
     }
 

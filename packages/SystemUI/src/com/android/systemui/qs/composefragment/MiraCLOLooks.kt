@@ -436,12 +436,14 @@ private fun ContentScope.MiraCLOOneUiLayout(
                 modifier = Modifier.weight(1f).height(tileHeight),
                 vertical = false,
             )
-            // Extra dim: the moon button flips Android's Extra dim (reduce bright colours).
+            // MIRACLO: the moon button switches Dark theme (Extra dim blacks out this display).
             val context = LocalContext.current
-            MiraCLOOneUiRoundButton(MiraCLOIcons.Moon, "Extra dim", glass, tileHeight) {
-                val cr = context.contentResolver
-                val on = Settings.Secure.getInt(cr, "reduce_bright_colors_activated", 0) != 0
-                Settings.Secure.putInt(cr, "reduce_bright_colors_activated", if (on) 0 else 1)
+            MiraCLOOneUiRoundButton(MiraCLOIcons.Moon, "Dark theme", glass, tileHeight) {
+                val ui = context.getSystemService(android.app.UiModeManager::class.java)
+                val dark = (context.resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
+                runCatching { ui?.setNightModeActivated(!dark) }
             }
         }
         Row(horizontalArrangement = spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
