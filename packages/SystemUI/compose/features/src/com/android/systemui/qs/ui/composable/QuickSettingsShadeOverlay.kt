@@ -231,6 +231,9 @@ constructor(
                     1f
                 }
             }
+            // Progress with a dead zone at the open end: 0.85..1 of the transition reads as fully
+            // open, so tiny cancelled swipes (taps, slider drags) leave the panel untouched.
+            val miracloSettled: () -> Float = { (miracloProgress() / 0.85f).coerceIn(0f, 1f) }
             Box(modifier = modifier.graphicsLayer { alpha = contentAlphaFromBrightnessMirror }) {
                 // The shade's open/close gesture is driven by the panel element (it measures
                 // how far a pull has gone against it), so it stays here, full screen and
@@ -248,38 +251,25 @@ constructor(
                             com.android.systemui.animation.Expandable.fromView(miracloView)
                         )
                     },
-                    // The tint fades in over the whole screen with the pull...
-                    backgroundAlpha = miracloProgress,
-                    // ...and the panel opens exactly like the notification shade: it is revealed
-                    // from the top edge down with the pull (rounded lower edge), the controls
-                    // staying in place while they fade in. Closing follows the finger the same way.
+                    // The tint fades in over the whole screen with the pull. A touch on the
+                    // panel can start a close swipe that is then cancelled; the first part of a
+                    // close is a dead zone, so the app behind never flashes through the tint.
+                    backgroundAlpha = miracloSettled,
+                    // The panel drops in from the top and settles, ColorOS style: it slides,
+                    // scales and fades as one piece. Nothing is clipped, so pills and sliders
+                    // never show cut in half mid-animation. Closing follows the finger the same
+                    // way.
                     contentModifier =
                         Modifier.fillMaxSize()
                             .graphicsLayer {
-                                val p = miracloProgress()
-                                alpha = (p * 2f).coerceIn(0f, 1f)
-                                if (p < 1f) {
-                                    val revealed = (size.height * p).coerceAtLeast(1f)
-                                    val r = 32.dp.toPx()
-                                    clip = true
-                                    shape =
-                                        androidx.compose.foundation.shape.GenericShape { s, _ ->
-                                            addRoundRect(
-                                                androidx.compose.ui.geometry.RoundRect(
-                                                    left = 0f,
-                                                    top = 0f,
-                                                    right = s.width,
-                                                    bottom = revealed,
-                                                    topLeftCornerRadius = androidx.compose.ui.geometry.CornerRadius.Zero,
-                                                    topRightCornerRadius = androidx.compose.ui.geometry.CornerRadius.Zero,
-                                                    bottomRightCornerRadius = androidx.compose.ui.geometry.CornerRadius(r),
-                                                    bottomLeftCornerRadius = androidx.compose.ui.geometry.CornerRadius(r),
-                                                )
-                                            )
-                                        }
-                                } else {
-                                    clip = false
-                                }
+                                val p = miracloSettled()
+                                alpha = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
+                                translationY = -(1f - p) * 72.dp.toPx()
+                                val scale = 0.94f + 0.06f * p
+                                scaleX = scale
+                                scaleY = scale
+                                transformOrigin =
+                                    androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
                             }
                             .onPlaced { coordinates ->
                                 val bounds = coordinates.boundsInWindow()
