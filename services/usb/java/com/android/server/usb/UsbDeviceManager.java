@@ -1450,8 +1450,12 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
                                 DATA_ROLE_DEVICE)
                                 && status.isRoleCombinationSupported(POWER_ROLE_SINK, DATA_ROLE_DEVICE);
 
-                        boolean usbDataDisabled =
-                                status.getUsbDataStatus() != UsbPortStatus.DATA_STATUS_ENABLED;
+                        // MIRACLO: USB HALs that cannot report the data status say "unknown".
+                        // Unknown is not "disabled": treating it as disabled showed "Charging this
+                        // device via USB" on every wall charger.
+                        int dataStatus = status.getUsbDataStatus();
+                        boolean usbDataDisabled = dataStatus != UsbPortStatus.DATA_STATUS_ENABLED
+                                && dataStatus != UsbPortStatus.DATA_STATUS_UNKNOWN;
                         mConnectedToDataDisabledPort = status.isConnected() && usbDataDisabled;
                         mPowerBrickConnectionStatus = status.getPowerBrickConnectionStatus();
                     } else {
