@@ -74,6 +74,74 @@ public final class StreamConfigurationMap {
     private static final int MAX_DIMEN_FOR_ROUNDING = 1920; // maximum allowed width for rounding
 
     /**
+     * MIRACLO: constructor shape from before Jpeg/R and HEIC Ultra HDR, looked up by the
+     * stock Xiaomi camera. The newer stream types are left empty.
+     *
+     * @hide
+     */
+    public StreamConfigurationMap(
+            StreamConfiguration[] configurations,
+            StreamConfigurationDuration[] minFrameDurations,
+            StreamConfigurationDuration[] stallDurations,
+            StreamConfiguration[] depthConfigurations,
+            StreamConfigurationDuration[] depthMinFrameDurations,
+            StreamConfigurationDuration[] depthStallDurations,
+            StreamConfiguration[] dynamicDepthConfigurations,
+            StreamConfigurationDuration[] dynamicDepthMinFrameDurations,
+            StreamConfigurationDuration[] dynamicDepthStallDurations,
+            StreamConfiguration[] heicConfigurations,
+            StreamConfigurationDuration[] heicMinFrameDurations,
+            StreamConfigurationDuration[] heicStallDurations,
+            HighSpeedVideoConfiguration[] highSpeedVideoConfigurations,
+            ReprocessFormatsMap inputOutputFormatsMap,
+            boolean listHighResolution) {
+        this(configurations, minFrameDurations, stallDurations,
+                depthConfigurations, depthMinFrameDurations, depthStallDurations,
+                dynamicDepthConfigurations, dynamicDepthMinFrameDurations,
+                dynamicDepthStallDurations,
+                heicConfigurations, heicMinFrameDurations, heicStallDurations,
+                null, null, null, null, null, null,
+                highSpeedVideoConfigurations, inputOutputFormatsMap,
+                listHighResolution, /* enforceImplementationDefined */ true);
+    }
+
+    /**
+     * MIRACLO: constructor shape with Jpeg/R but from before HEIC Ultra HDR, looked up by the
+     * stock Xiaomi camera. HEIC Ultra HDR streams are left empty.
+     *
+     * @hide
+     */
+    public StreamConfigurationMap(
+            StreamConfiguration[] configurations,
+            StreamConfigurationDuration[] minFrameDurations,
+            StreamConfigurationDuration[] stallDurations,
+            StreamConfiguration[] depthConfigurations,
+            StreamConfigurationDuration[] depthMinFrameDurations,
+            StreamConfigurationDuration[] depthStallDurations,
+            StreamConfiguration[] dynamicDepthConfigurations,
+            StreamConfigurationDuration[] dynamicDepthMinFrameDurations,
+            StreamConfigurationDuration[] dynamicDepthStallDurations,
+            StreamConfiguration[] heicConfigurations,
+            StreamConfigurationDuration[] heicMinFrameDurations,
+            StreamConfigurationDuration[] heicStallDurations,
+            StreamConfiguration[] jpegRConfigurations,
+            StreamConfigurationDuration[] jpegRMinFrameDurations,
+            StreamConfigurationDuration[] jpegRStallDurations,
+            HighSpeedVideoConfiguration[] highSpeedVideoConfigurations,
+            ReprocessFormatsMap inputOutputFormatsMap,
+            boolean listHighResolution) {
+        this(configurations, minFrameDurations, stallDurations,
+                depthConfigurations, depthMinFrameDurations, depthStallDurations,
+                dynamicDepthConfigurations, dynamicDepthMinFrameDurations,
+                dynamicDepthStallDurations,
+                heicConfigurations, heicMinFrameDurations, heicStallDurations,
+                jpegRConfigurations, jpegRMinFrameDurations, jpegRStallDurations,
+                null, null, null,
+                highSpeedVideoConfigurations, inputOutputFormatsMap,
+                listHighResolution, /* enforceImplementationDefined */ true);
+    }
+
+    /**
      * Create a new {@link StreamConfigurationMap}.
      *
      * <p>The array parameters ownership is passed to this object after creation; do not

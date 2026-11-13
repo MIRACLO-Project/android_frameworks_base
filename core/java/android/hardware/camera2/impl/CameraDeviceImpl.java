@@ -646,7 +646,14 @@ public class CameraDeviceImpl extends CameraDevice
         if (!checkSurfaceSizesCompatible(outputs)) {
             return false;
         }
-        checkInputConfiguration(inputConfig);
+        try {
+            checkInputConfiguration(inputConfig);
+        } catch (IllegalArgumentException e) {
+            // MIRACLO: the stock Xiaomi camera asks for reprocessing at the full sensor size
+            // (50 MP), which the HAL handles but does not list. Let the HAL decide.
+            Log.w(TAG, "Input configuration not listed by the camera, passing it on: "
+                    + e.getMessage());
+        }
 
         boolean success = false;
 

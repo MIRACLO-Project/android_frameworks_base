@@ -6207,6 +6207,11 @@ public final class DisplayManagerService extends SystemService {
         @Override // Binder call
         public void setTemporaryAutoBrightnessAdjustment(float adjustment) {
             setTemporaryAutoBrightnessAdjustment_enforcePermission();
+            if (adjustment == 0.0f) {
+                // MIRACLO: the stock Xiaomi camera clears the adjustment with 0 instead of NaN,
+                // which would leave auto-brightness without its smooth transitions afterwards.
+                adjustment = Float.NaN;
+            }
             final long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mSyncRoot) {

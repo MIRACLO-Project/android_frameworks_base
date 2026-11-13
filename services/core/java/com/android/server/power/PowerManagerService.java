@@ -6376,6 +6376,12 @@ public final class PowerManagerService extends SystemService
         }
 
         @Override // Binder call
+        public void setBrightnessRampRate(int rate) {
+            // MIRACLO: the stock Xiaomi camera calls this; brightness ramps are handled by the
+            // display power controller, so the call only needs to succeed.
+        }
+
+        @Override // Binder call
         @RequiresPermission(value = android.Manifest.permission.TURN_SCREEN_ON, conditional = true)
         public void acquireWakeLock(IBinder lock, int flags, String tag, String packageName,
                 WorkSource ws, String historyTag, int displayId,

@@ -76,6 +76,23 @@ public class CaptureResultExtras implements Parcelable {
         this.readoutTimestamp = readoutTimestamp;
     }
 
+    /**
+     * MIRACLO: the constructor from before readout timestamps, which the stock Xiaomi
+     * camera still calls. Results built this way carry no readout timestamp.
+     */
+    public CaptureResultExtras(int requestId, int subsequenceId, int afTriggerId,
+                               int precaptureTriggerId, long frameNumber,
+                               int partialResultCount, int errorStreamId,
+                               String errorPhysicalCameraId, long lastCompletedRegularFrameNumber,
+                               long lastCompletedReprocessFrameNumber,
+                               long lastCompletedZslFrameNumber) {
+        this(requestId, subsequenceId, afTriggerId, precaptureTriggerId, frameNumber,
+                partialResultCount, errorStreamId, errorPhysicalCameraId,
+                lastCompletedRegularFrameNumber, lastCompletedReprocessFrameNumber,
+                lastCompletedZslFrameNumber, /* hasReadoutTimestamp */ false,
+                /* readoutTimestamp */ 0);
+    }
+
     @Override
     public int describeContents() {
         return 0;
