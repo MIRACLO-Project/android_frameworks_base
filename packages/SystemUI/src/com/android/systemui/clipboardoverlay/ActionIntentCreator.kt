@@ -74,7 +74,10 @@ constructor(
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } else {
-                putExtra(Intent.EXTRA_TEXT, clipData.getItemAt(0).coerceToText(context).toString())
+                // MIRACLO: very long copied text would exceed the Binder transaction limit and
+                // crash System UI when shared, so share at most MAX_SHARE_TEXT_LENGTH characters.
+                val text = clipData.getItemAt(0).coerceToText(context).toString()
+                putExtra(Intent.EXTRA_TEXT, text.take(MAX_SHARE_TEXT_LENGTH))
                 setType("text/plain")
             }
         }
@@ -164,5 +167,6 @@ constructor(
         private const val EXTRA_EDIT_SOURCE: String = "edit_source"
         private const val EDIT_SOURCE_CLIPBOARD: String = "clipboard"
         private const val REMOTE_COPY_ACTION: String = "android.intent.action.REMOTE_COPY"
+        private const val MAX_SHARE_TEXT_LENGTH = 100_000
     }
 }
