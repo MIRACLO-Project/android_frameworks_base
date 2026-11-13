@@ -1984,6 +1984,8 @@ public class Instrumentation {
                     + " requestCode=" + requestCode + " options=" + options, new Throwable());
         }
         Objects.requireNonNull(intent);
+        // MIRACLO: the stock camera's gallery taps go to the user's gallery.
+        com.android.internal.util.miraclo.CameraGalleryRedirect.maybeRedirect(who, intent);
         IApplicationThread whoThread = (IApplicationThread) contextThread;
         Uri referrer = target != null ? target.onProvideReferrer() : null;
         if (referrer != null) {
