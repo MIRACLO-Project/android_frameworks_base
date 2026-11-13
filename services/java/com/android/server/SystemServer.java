@@ -2959,6 +2959,12 @@ public final class SystemServer implements Dumpable {
             mSystemServiceManager.startService(LauncherAppsService.class);
             t.traceEnd();
 
+            // MIRACLO: optimize apps soon after the first boot of each new build.
+            t.traceBegin("StartMiraPostUpdateDexoptService");
+            mSystemServiceManager.startService(
+                    com.android.server.pm.MiraPostUpdateDexoptService.class);
+            t.traceEnd();
+
             t.traceBegin("StartCrossProfileAppsService");
             mSystemServiceManager.startService(CrossProfileAppsService.class);
             t.traceEnd();
